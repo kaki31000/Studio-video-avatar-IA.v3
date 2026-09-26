@@ -250,6 +250,12 @@ components:
             minLength: 1
             maxLength: 12000000
           description: Optional additional photos used as visual scene references
+        agnesApiKey:
+          type: string
+          minLength: 1
+          maxLength: 512
+          writeOnly: true
+          description: Optional Agnes API key used only for this render and never persisted
         scriptText:
           type: string
           minLength: 1
@@ -271,6 +277,16 @@ components:
             - fr-FR-EloiseNeural
             - fr-FR-BrigitteNeural
           description: Edge TTS voice used when post-stitch audio is selected
+        videoDuration:
+          type: integer
+          enum: [15, 30, 45, 60]
+          default: 15
+          description: Requested final video duration in seconds
+        sceneCount:
+          type: integer
+          enum: [1, 2, 3]
+          default: 1
+          description: Number of distinct video plans to generate
       required: [avatarImageDataUrl, scriptText, format, audioSource, audioVoice]
     AvatarVideoCreated:
       type: object

@@ -40,6 +40,8 @@ const queryClient = new QueryClient();
 type Format = AvatarVideoInput['format'];
 type AudioSource = AvatarVideoInput['audioSource'];
 type AudioVoice = AvatarVideoInput['audioVoice'];
+type VideoDuration = NonNullable<AvatarVideoInput['videoDuration']>;
+type SceneCount = NonNullable<AvatarVideoInput['sceneCount']>;
 
 const voiceOptions: { value: AudioVoice; label: string; hint: string }[] = [
   { value: 'fr-FR-DeniseNeural', label: 'Denise', hint: 'Français · voix féminine' },
@@ -52,6 +54,13 @@ const formatOptions: { value: Format; label: string; hint: string }[] = [
   { value: '16:9', label: 'Paysage', hint: 'YouTube, site' },
   { value: '9:16', label: 'Portrait', hint: 'Reels, TikTok' },
   { value: '1:1', label: 'Carré', hint: 'Flux sociaux' },
+];
+
+const durationOptions: { value: VideoDuration; label: string }[] = [
+  { value: 15, label: '15 s' },
+  { value: 30, label: '30 s' },
+  { value: 45, label: '45 s' },
+  { value: 60, label: '60 s' },
 ];
 
 const steps = [
@@ -189,18 +198,19 @@ function UploadField({ image, onImage }: { image: string; onImage: (value: strin
   );
 }
 
-function AdditionalPhotosField({ images, onImages, onMakeAvatar }: {
+function AdditionalPhotosField({ images, onImages, onMakeAvatar, maxImages }: {
   images: string[];
   onImages: (images: string[]) => void;
   onMakeAvatar: (index: number) => void;
+  maxImages: number;
 }) {
   const [uploadError, setUploadError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = (files: FileList | File[]) => {
-    const remaining = 2 - images.length;
+    const remaining = maxImages - images.length;
     if (remaining <= 0) {
-      setUploadError('Vous pouvez ajouter jusqu’à 2 photos supplémentaires.');
+      setUploadError(`Vous pouvez ajouter jusqu’à ${maxImages} photo${maxImages > 1 ? 's' : ''} de décor.`);
       return;
     }
     const selected = Array.from(files).slice(0, remaining);
@@ -219,8 +229,8 @@ function AdditionalPhotosField({ images, onImages, onMakeAvatar }: {
     <div className="mt-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-bold">Photos supplémentaires <span className="font-normal text-[hsl(var(--muted-foreground))]">(facultatif)</span></p>
-           <p className="mt-1 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Elles servent de références pour le décor et l’arrière-plan des plans Agnes.</p>
+           <p className="text-sm font-bold">Photos de décor <span className="font-normal text-[hsl(var(--muted-foreground))]">(facultatif)</span></p>
+            <p className="mt-1 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Une photo peut guider chaque plan. Jusqu’à {maxImages} décor{maxImages > 1 ? 's' : ''} selon le nombre de scènes choisi.</p>
         </div>
         <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-xs font-bold hover:border-[hsl(var(--foreground)/.5)]" data-testid="button-add-scene-photos"><Upload className="h-3.5 w-3.5" /> Ajouter</button>
       </div>
@@ -405,6 +415,9 @@ function Home() {
   const [format, setFormat] = useState<Format>('16:9');
   const [audioSource, setAudioSource] = useState<AudioSource>('model');
   const [audioVoice, setAudioVoice] = useState<AudioVoice>('fr-FR-DeniseNeural');
+  const [agnesApiKey, setAgnesApiKey] = useState('');
+  const [videoDuration, setVideoDuration] = useState<VideoDuration>(15);
+  const [sceneCount, setSceneCount] = useState<SceneCount>(1);
   const [taskId, setTaskId] = useState(readCurrentTaskId);
   const [formError, setFormError] = useState('');
   const queryClient = useQueryClient();
@@ -415,10 +428,14 @@ function Home() {
     if (taskId) document.getElementById('suivi')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [taskId]);
 
+  useEffect(() => {
+    setSceneImageDataUrls((current) => current.slice(0, sceneCount));
+  }, [sceneCount]);
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError('');
-    if (!statusQuery.data?.configured) {
+    if (!statusQuery.data?.configured && !agnesApiKey.trim()) {
       setFormError(statusQuery.data?.message || 'Le moteur Agnes n’est pas disponible pour le moment.');
       return;
     }
@@ -437,11 +454,14 @@ function Home() {
     const input: AvatarVideoInput = {
       avatarImageDataUrl,
       sceneImageDataUrls: sceneImageDataUrls.length ? sceneImageDataUrls : undefined,
+      agnesApiKey: agnesApiKey.trim() || undefined,
       scriptText: scriptText.trim(),
       sceneDirection: sceneDirection.trim() || undefined,
       format,
       audioSource,
       audioVoice,
+      videoDuration,
+      sceneCount,
     };
     generateVideo.mutate({ data: input }, {
       onSuccess: async (created) => {
@@ -463,7 +483,7 @@ function Home() {
   };
 
   const characterCount = scriptText.length;
-  const unavailable = statusQuery.data && !statusQuery.data.configured;
+  const unavailable = statusQuery.data && !statusQuery.data.configured && !agnesApiKey.trim();
 
   return (
     <div className="grain min-h-[100dvh] bg-[hsl(var(--background))]">
@@ -497,6 +517,7 @@ function Home() {
                     <AdditionalPhotosField
                       images={sceneImageDataUrls}
                       onImages={setSceneImageDataUrls}
+                      maxImages={Math.min(sceneCount, 2)}
                       onMakeAvatar={(index) => {
                         const selected = sceneImageDataUrls[index];
                         setSceneImageDataUrls(sceneImageDataUrls.filter((_, itemIndex) => itemIndex !== index));
@@ -520,6 +541,23 @@ function Home() {
                     <div className="mb-6"><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[hsl(var(--muted-foreground))]">Étape 03</p><h2 className="mt-2 font-display text-2xl font-bold tracking-[-.04em]">Cadrez le rendu</h2></div>
                     <label className="text-sm font-bold">Format</label>
                     <div className="mt-3"><FormatSelector value={format} onChange={setFormat} /></div>
+                     <label className="mt-7 block text-sm font-bold">Durée finale</label>
+                     <div className="mt-3 grid grid-cols-4 gap-2" role="radiogroup" aria-label="Durée finale">
+                       {durationOptions.map((option) => (
+                         <button type="button" key={option.value} role="radio" aria-checked={videoDuration === option.value} onClick={() => setVideoDuration(option.value)} className={`rounded-xl border px-2 py-3 text-center text-sm font-bold transition-colors ${videoDuration === option.value ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--foreground))] text-[hsl(var(--background))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--foreground)/.48)]'}`} data-testid={`button-duration-${option.value}`}>{option.label}</button>
+                       ))}
+                     </div>
+                     <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Agnes génère des clips de 15 secondes, puis le studio les assemble jusqu’à la durée choisie.</p>
+                     <label className="mt-6 block text-sm font-bold">Nombre de scènes</label>
+                     <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Nombre de scènes">
+                       {([1, 2, 3] as SceneCount[]).map((value) => (
+                         <button type="button" key={value} role="radio" aria-checked={sceneCount === value} onClick={() => setSceneCount(value)} className={`rounded-xl border px-2 py-3 text-center text-sm font-bold transition-colors ${sceneCount === value ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--foreground))] text-[hsl(var(--background))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--foreground)/.48)]'}`} data-testid={`button-scene-count-${value}`}>{value} scène{value > 1 ? 's' : ''}</button>
+                       ))}
+                     </div>
+                     <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Chaque scène devient un plan vidéo distinct. Les photos de décor sont associées dans le même ordre.</p>
+                     <label htmlFor="agnes-api-key" className="mt-7 block text-sm font-bold">Clé API Agnes <span className="font-normal text-[hsl(var(--muted-foreground))]">(facultatif)</span></label>
+                     <input id="agnes-api-key" type="password" value={agnesApiKey} onChange={(event) => setAgnesApiKey(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Utiliser la clé du serveur par défaut" className="mt-3 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted)/.35)] px-3 py-3 text-sm focus:border-[hsl(var(--foreground))] focus:outline-none" data-testid="input-agnes-api-key" />
+                     <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Cette clé est transmise uniquement à ce rendu. Elle n’est pas enregistrée dans le navigateur, la tâche ou les journaux.</p>
                     <label className="mt-7 block text-sm font-bold">Audio</label>
                     <div className="mt-3 space-y-2">
                       <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 ${audioSource === 'model' ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--muted)/.62)]' : 'border-[hsl(var(--border))]'}`}><input type="radio" name="audio" value="model" checked={audioSource === 'model'} onChange={() => setAudioSource('model')} className="mt-0.5 accent-[hsl(var(--foreground))]" data-testid="radio-audio-model" /><span><span className="block text-sm font-semibold">Voix générée avec la vidéo</span><span className="mt-1 block text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Agnes produit la parole dans le plan animé; la synchronisation dépend du modèle.</span></span></label>

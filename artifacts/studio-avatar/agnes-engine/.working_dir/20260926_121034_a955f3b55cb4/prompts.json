@@ -1,0 +1,4 @@
+{
+  "anchor_prompt": "Preserve the person's identity and appearance from the supplied portrait.\r\nCreate natural speech with realistic lip movement and expressive but restrained gestures.\r\nCreate one continuous cinematic shot that fits the script; follow any requested movement and setting direction.\r\nUse the additional reference photos as the scene background and environment. Keep the selected avatar photo as the primary identity and do not replace the avatar with people from the background photos.\r\nDirection de scène: Mascotte Eshri regarde caméra et se déplace aussi au autre arrière plan et dis le texte du script avec une voix homme mascotte",
+  "model_audio_prompt": "Mascotte Eshri en plan rapproché, regard caméra, lèvres synchronisées avec la voix masculine énergique. Gestes des pattes et de la tête rythmant le discours. Mouvements légers, position stable, expression souriante et professionnelle."
+}

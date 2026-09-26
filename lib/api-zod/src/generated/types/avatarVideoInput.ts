@@ -8,6 +8,8 @@
 import type { AvatarVideoInputAudioSource } from './avatarVideoInputAudioSource';
 import type { AvatarVideoInputAudioVoice } from './avatarVideoInputAudioVoice';
 import type { AvatarVideoInputFormat } from './avatarVideoInputFormat';
+import type { AvatarVideoInputSceneCount } from './avatarVideoInputSceneCount';
+import type { AvatarVideoInputVideoDuration } from './avatarVideoInputVideoDuration';
 
 export interface AvatarVideoInput {
   /**
@@ -24,6 +26,12 @@ export interface AvatarVideoInput {
      */
   sceneImageDataUrls?: string[];
   /**
+     * Optional Agnes API key used only for this render and never persisted
+     * @minLength 1
+     * @maxLength 512
+     */
+  agnesApiKey?: string;
+  /**
      * @minLength 1
      * @maxLength 16000
      */
@@ -34,4 +42,8 @@ export interface AvatarVideoInput {
   audioSource: AvatarVideoInputAudioSource;
   /** Edge TTS voice used when post-stitch audio is selected */
   audioVoice: AvatarVideoInputAudioVoice;
+  /** Requested final video duration in seconds */
+  videoDuration?: AvatarVideoInputVideoDuration;
+  /** Number of distinct video plans to generate */
+  sceneCount?: AvatarVideoInputSceneCount;
 }

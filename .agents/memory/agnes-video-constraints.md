@@ -14,3 +14,9 @@ For the avatar flow, the uploaded portrait must remain the identity source: bypa
 **Why:** Regenerating the portrait can change the mascot/person. Agnes has no separate background-image field in the v2.0 protocol, so background photos require the supported multi-image keyframe mode and must stay within the three-image limit. The 15-second frame preset is valid only when the resolution does not move the request into the stricter 1080p frame tier.
 
 **How to apply:** Keep the portrait first, cap background references at two, and use 1280x720 or 720x1280 for the 16:9/9:16 presets when a 361-frame 15-second request is desired.
+
+For assembled avatar output, concat-demuxer copying can introduce small timestamp drift (about 0.2 seconds on a 15-second reel). Normalize the assembled reel with a final duration-bounded encode before exposing it as the result.
+
+**Why:** User-selected durations must remain stable across 15/30/45/60-second outputs, including when several trimmed scene clips are concatenated.
+
+**How to apply:** Build the scene sequence from validated 15-second clips, then encode with an explicit `-t` target duration before audio/subtitle composition.

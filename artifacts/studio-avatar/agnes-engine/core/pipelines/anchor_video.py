@@ -14,11 +14,13 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 from typing import Callable, Optional
 
 from core.api.agnes_image import AgnesImageAPI
 from core.api.agnes_video import AgnesVideoAPI, VideoTaskCancelled
 from core.compositor.concatenator import VideoConcatenator
+from core.compositor.ffmpeg_tool import resolve_binary
 from core.config import DEFAULT_TEXT_MODEL
 from core.pipelines import MultiScenePipeline
 from core.screenwriter import Screenwriter
@@ -219,107 +221,125 @@ class AnchorPipeline(MultiScenePipeline):
                 "model_audio_prompt": prompt,
             })
 
-        logger.info("[Anchor] clip_prompt: %s...", prompt[:80])
-        self._state.scenes = [SceneTask(index=0, scene_prompt=prompt, duration=5)]
+        scene_count = max(1, min(3, int(self._state.scene_count or 1)))
+        scene_duration = max(1, round(int(self._state.video_duration or 15) / scene_count))
+        camera_variants = [
+            "Use a centered medium shot with gentle natural hand movement.",
+            "Use a slightly tighter angle with a subtle lateral camera drift.",
+            "Use a wider composition with a restrained push-in toward the avatar.",
+        ]
+        self._state.scenes = [
+            SceneTask(
+                index=index,
+                scene_prompt=f"{prompt}\n{camera_variants[index]}",
+                duration=scene_duration,
+            )
+            for index in range(scene_count)
+        ]
         self.task_manager.update_state(scenes=[s.model_dump() for s in self._state.scenes])
-        await self._emit("clip_prompts", "completed", "动态描述生成完成", _PROGRESS_CLIP_PROMPTS_DONE)
+        await self._emit(
+            "clip_prompts",
+            "completed",
+            f"{scene_count} 个分镜描述生成完成",
+            _PROGRESS_CLIP_PROMPTS_DONE,
+        )
 
     # ------------------------------------------------------------------
     # 视频生成（单段 i2v/keyframes 循环，覆写通用实现）
     # ------------------------------------------------------------------
 
     async def _generate_videos(self) -> None:
-        """生成单段 15 秒头像视频，最终按音频长度循环使用。
-
-        Without scene references this is ti2vid with the original portrait.
-        When background photos are provided, the portrait remains the first
-        reference and up to two photos are added as Agnes keyframe/scene
-        references.
-        """
-        scene = self._state.scenes[0]
+        """为每个分镜生成一个 15 秒视频片段，再在最终合成阶段按目标时长编排。"""
         anchor_image_path = self._state.anchor_image_path
-        prompt = scene.scene_prompt
-
-        clip_dir = os.path.join(self.working_dir, "clip")
-        os.makedirs(clip_dir, exist_ok=True)
-        clip_path = os.path.join(clip_dir, "clip.mp4")
-
-        if os.path.exists(clip_path):
-            try:
-                validate_video_file(clip_path)
-            except Exception as exc:
-                logger.warning("[Anchor] invalid cached clip will be regenerated: %s", exc)
-                try:
-                    os.remove(clip_path)
-                except OSError:
-                    pass
-            else:
-                scene.video_file = clip_path
-                logger.info("[Anchor] single clip already exists, skipping")
-                return
-
+        if not anchor_image_path or not os.path.isfile(anchor_image_path):
+            raise RuntimeError("主播原始图片不可用，无法提交 Image-to-Video 请求")
         self.task_manager.update_step("step_clip_generation", StepStatus.RUNNING)
-        await self._emit("clip_gen", "running", "生成单段循环视频...", _PROGRESS_CLIP_GEN_START)
+        total_scenes = len(self._state.scenes)
+        await self._emit(
+            "clip_gen",
+            "running",
+            f"生成 {total_scenes} 个分镜视频...",
+            _PROGRESS_CLIP_GEN_START,
+        )
 
         vw = self._state.video_width
         vh = self._state.video_height
 
-        saved_video_id = self._load_task_json(clip_dir)
-        if saved_video_id:
-            video_id = saved_video_id
-        else:
-            if not anchor_image_path or not os.path.isfile(anchor_image_path):
-                raise RuntimeError("主播原始图片不可用，无法提交 Image-to-Video 请求")
-            background_images = [
-                path for path in (self._state.scene_reference_images or [])
-                if path and os.path.isfile(path)
-            ][:2]
-            reference_images = [anchor_image_path, *background_images]
-            if background_images:
-                prompt = (
-                    f"{prompt}\n"
-                    "Use the additional reference images as the scene background "
-                    "and environment. Keep the avatar identity, face, and mascot "
-                    "appearance from the first reference image; do not replace "
-                    "the avatar with the background subjects."
-                )
-                logger.info(
-                    "[Anchor] using original portrait plus %d background reference(s)",
-                    len(background_images),
-                )
-            else:
-                logger.info("[Anchor] using original portrait as the sole ti2vid reference")
-            video_id = await self.video_generator.submit_video(
-                prompt=prompt,
-                reference_image_paths=reference_images,
-                duration=_ANCHOR_CLIP_DURATION_SECONDS,
-                width=vw,
-                height=vh,
-            )
-            self._save_task_json(clip_dir, {"video_id": video_id})
+        for scene_index, scene in enumerate(self._state.scenes):
+            clip_dir = os.path.join(self.working_dir, f"clip_{scene_index + 1}")
+            os.makedirs(clip_dir, exist_ok=True)
+            clip_path = os.path.join(clip_dir, "clip.mp4")
 
-        for attempt in range(3):
-            try:
-                video_output = await self.video_generator.wait_for_video(video_id)
-                await video_output.save(clip_path)
-                validate_video_file(clip_path)
-                break
-            except VideoTaskCancelled:
-                # 优化路线图 0.2：用户停止不是临时错误，不重试、直接穿透
-                raise
-            except Exception as e:
-                if attempt < 2:
-                    logger.warning(
-                        "[Anchor] single clip attempt %d failed: %s, retrying...",
-                        attempt + 1, e,
-                    )
-                    await asyncio.sleep(_CLIP_RETRY_INTERVAL_BASE_SECONDS * (attempt + 1))
+            if os.path.exists(clip_path):
+                try:
+                    validate_video_file(clip_path)
+                except Exception as exc:
+                    logger.warning("[Anchor] invalid cached scene clip will be regenerated: %s", exc)
+                    try:
+                        os.remove(clip_path)
+                    except OSError:
+                        pass
                 else:
-                    raise
+                    scene.video_file = clip_path
+                    logger.info("[Anchor] scene %d clip already exists, skipping", scene_index + 1)
+                    continue
 
-        scene.video_file = clip_path
+            saved_video_id = self._load_task_json(clip_dir)
+            if saved_video_id:
+                video_id = saved_video_id
+            else:
+                background_path = (
+                    self._state.scene_reference_images[scene_index]
+                    if scene_index < len(self._state.scene_reference_images)
+                    and os.path.isfile(self._state.scene_reference_images[scene_index])
+                    else ""
+                )
+                reference_images = [anchor_image_path]
+                prompt = scene.scene_prompt
+                if background_path:
+                    reference_images.append(background_path)
+                    prompt = (
+                        f"{prompt}\n"
+                        "Use the second reference image as this scene's background "
+                        "and environment. Keep the avatar identity, face, and mascot "
+                        "appearance from the first reference image; do not replace "
+                        "the avatar with the background subject."
+                    )
+                    logger.info("[Anchor] scene %d uses one background reference", scene_index + 1)
+                else:
+                    logger.info("[Anchor] scene %d uses the portrait as its sole ti2vid reference", scene_index + 1)
+                video_id = await self.video_generator.submit_video(
+                    prompt=prompt,
+                    reference_image_paths=reference_images,
+                    duration=_ANCHOR_CLIP_DURATION_SECONDS,
+                    width=vw,
+                    height=vh,
+                )
+                self._save_task_json(clip_dir, {"video_id": video_id})
+
+            for attempt in range(3):
+                try:
+                    video_output = await self.video_generator.wait_for_video(video_id)
+                    await video_output.save(clip_path)
+                    validate_video_file(clip_path)
+                    break
+                except VideoTaskCancelled:
+                    raise
+                except Exception as e:
+                    if attempt < 2:
+                        logger.warning(
+                            "[Anchor] scene %d attempt %d failed: %s, retrying...",
+                            scene_index + 1, attempt + 1, e,
+                        )
+                        await asyncio.sleep(_CLIP_RETRY_INTERVAL_BASE_SECONDS * (attempt + 1))
+                    else:
+                        raise
+
+            scene.video_file = clip_path
+            self.task_manager.update_state(scenes=[s.model_dump() for s in self._state.scenes])
+
         self.task_manager.update_step("step_clip_generation", StepStatus.COMPLETED)
-        await self._emit("clip_gen", "completed", "单段循环视频生成完成", _PROGRESS_CLIP_GEN_DONE)
+        await self._emit("clip_gen", "completed", "分镜视频生成完成", _PROGRESS_CLIP_GEN_DONE)
 
     # ------------------------------------------------------------------
     # 音频生成（覆写通用实现）
@@ -425,10 +445,106 @@ class AnchorPipeline(MultiScenePipeline):
     # 合成（覆写通用实现）
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _trim_scene_clip(source_path: str, output_path: str, duration: float) -> None:
+        """Trim one generated scene without re-encoding before concatenation."""
+        subprocess.run(
+            [
+                resolve_binary("ffmpeg"), "-y", "-i", source_path,
+                "-t", f"{duration:.3f}", "-reset_timestamps", "1",
+                "-c", "copy", output_path,
+            ],
+            stdin=subprocess.DEVNULL,
+            check=True,
+            capture_output=True,
+            timeout=300,
+        )
+
+    def _build_scene_reel(self, output_path: str) -> str:
+        """Arrange all requested scenes into the selected final duration.
+
+        Agnes always renders reliable 15-second source clips. Shorter targets
+        use every requested scene once and trim each segment; longer targets
+        cycle through the distinct scenes until the target is covered.
+        """
+        target_duration = max(15, int(self._state.video_duration or 15))
+        scene_paths = [
+            scene.video_file
+            for scene in self._state.scenes
+            if scene.video_file and os.path.isfile(scene.video_file)
+        ]
+        if not scene_paths:
+            raise RuntimeError("Aucun plan vidéo n’a été généré.")
+
+        if os.path.exists(output_path):
+            try:
+                validate_video_file(output_path)
+                return output_path
+            except Exception:
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
+
+        scene_count = len(scene_paths)
+        segments: list[tuple[str, float]] = []
+        if target_duration <= scene_count * _ANCHOR_CLIP_DURATION_SECONDS:
+            segment_duration = target_duration / scene_count
+            segments = [(path, segment_duration) for path in scene_paths]
+        else:
+            remaining = float(target_duration)
+            index = 0
+            while remaining > 0.01:
+                duration = min(float(_ANCHOR_CLIP_DURATION_SECONDS), remaining)
+                segments.append((scene_paths[index % scene_count], duration))
+                remaining -= duration
+                index += 1
+
+        temporary_paths: list[str] = []
+        try:
+            for index, (source_path, duration) in enumerate(segments):
+                segment_path = os.path.join(
+                    self.working_dir, f"_scene_reel_segment_{index + 1}.mp4"
+                )
+                self._trim_scene_clip(source_path, segment_path, duration)
+                temporary_paths.append(segment_path)
+            VideoConcatenator.concat_videos(temporary_paths, output_path)
+            normalized_path = f"{output_path}.normalized.mp4"
+            subprocess.run(
+                [
+                    resolve_binary("ffmpeg"), "-y", "-i", output_path,
+                    "-t", f"{target_duration:.3f}",
+                    "-c:v", "libx264", "-preset", "fast",
+                    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
+                    normalized_path,
+                ],
+                stdin=subprocess.DEVNULL,
+                check=True,
+                capture_output=True,
+                timeout=300,
+            )
+            os.replace(normalized_path, output_path)
+            validate_video_file(output_path)
+            return output_path
+        finally:
+            for path in temporary_paths:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            normalized_path = f"{output_path}.normalized.mp4"
+            if os.path.exists(normalized_path):
+                try:
+                    os.remove(normalized_path)
+                except OSError:
+                    pass
+
     async def _composite_final(self) -> str:
-        """循环单段视频 + 叠加音频 + 字幕（post_stitch）；model 模式返回 clip。"""
+        """Assemble the distinct scene reel, then add audio and subtitles."""
         audio_source = self._state.audio_source or "post_stitch"
-        clip_path = self._state.scenes[0].video_file
+        reel_path = os.path.join(self.working_dir, "scene_reel.mp4")
+        await asyncio.to_thread(self._build_scene_reel, reel_path)
+        target_duration = max(15, int(self._state.video_duration or 15))
 
         if audio_source == "model":
             output_path = os.path.join(self.working_dir, "final_video.mp4")
@@ -444,7 +560,7 @@ class AnchorPipeline(MultiScenePipeline):
             if not os.path.exists(output_path):
                 temporary_path = f"{output_path}.part"
                 try:
-                    shutil.copyfile(clip_path, temporary_path)
+                    shutil.copyfile(reel_path, temporary_path)
                     validate_video_file(temporary_path)
                     os.replace(temporary_path, output_path)
                 except Exception:
@@ -480,15 +596,16 @@ class AnchorPipeline(MultiScenePipeline):
             and bool(self._state.combined_subtitle)
         )
 
-        await self._emit("concatenate", "running", "循环拼接视频+音频+字幕...", _PROGRESS_CONCAT_START)
+        await self._emit("concatenate", "running", "拼接分镜、音频与字幕...", _PROGRESS_CONCAT_START)
 
         await asyncio.to_thread(
             VideoConcatenator.composite_anchor_video,
-            clip_path=clip_path,
+            clip_path=reel_path,
             audio_path=audio_path,
             srt_path=self._state.combined_subtitle if has_subtitle else None,
             output_path=output_path,
             audio_duration=audio_duration,
+            target_duration=target_duration,
             subtitle_style=self._state.subtitle_config.style if has_subtitle else None,
             subtitle_styles_path=self._state.subtitle_styles_path or None,
             video_width=self._state.video_width,

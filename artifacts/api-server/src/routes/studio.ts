@@ -110,6 +110,7 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
   }
 
   const input = parsed.data;
+  const requestApiKey = input.agnesApiKey?.trim();
   const dataUrlToBuffer = (dataUrl: string): { extension: string; bytes: Buffer } | null => {
     const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUrl);
     if (!match) return null;
@@ -163,9 +164,12 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
 
   const form = new FormData();
   form.set("script_text", input.scriptText.trim());
+  if (requestApiKey) form.set("agnes_api_key", requestApiKey);
   form.set("anchor_prompt", anchorPrompt);
   form.set("anchor_reference_image", imagePaths[0]);
   form.set("scene_reference_images", JSON.stringify(imagePaths.slice(1)));
+  form.set("video_duration", String(input.videoDuration ?? 15));
+  form.set("scene_count", String(input.sceneCount ?? 1));
   form.set("audio_source", input.audioSource);
   form.set("video_width", String(dimensions.width));
   form.set("video_height", String(dimensions.height));
@@ -186,7 +190,7 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
       req.log.error({ upstreamStatus: upstream.status }, "Agnes task creation failed");
       await Promise.all(imagePaths.map(removeTemporaryFile));
       const errorMessage = upstream.status === 401
-        ? "La clé Agnes est refusée (401). Remplacez AGNES_API_KEY dans les secrets Replit, puis redémarrez le moteur."
+        ? "La clé Agnes fournie est refusée (401). Vérifiez-la puis réessayez."
         : "Agnes n’a pas accepté ce rendu. Vérifiez le portrait et le script, puis réessayez.";
       sendError(res, upstream.status === 404 || upstream.status === 401 ? 503 : 400, errorMessage);
       return;

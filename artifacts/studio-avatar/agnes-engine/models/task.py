@@ -371,6 +371,8 @@ class AnchorVideoTask(BaseTaskState):
 
     # 配置
     audio_source: str = "post_stitch"  # "post_stitch" | "model"
+    video_duration: int = 15
+    scene_count: int = 1
 
     # 步骤状态
     step_generate_anchor: StepStatus = StepStatus.PENDING

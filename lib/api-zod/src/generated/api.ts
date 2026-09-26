@@ -36,20 +36,26 @@ export const generateAvatarVideoBodySceneImageDataUrlsItemMax = 12000000;
 
 export const generateAvatarVideoBodySceneImageDataUrlsMax = 2;
 
+export const generateAvatarVideoBodyAgnesApiKeyMax = 512;
+
 export const generateAvatarVideoBodyScriptTextMax = 16000;
 
 export const generateAvatarVideoBodySceneDirectionMax = 1800;
 
-
+export const generateAvatarVideoBodyVideoDurationDefault = 15;
+export const generateAvatarVideoBodySceneCountDefault = 1;
 
 export const GenerateAvatarVideoBody = zod.object({
   "avatarImageDataUrl": zod.string().min(1).max(generateAvatarVideoBodyAvatarImageDataUrlMax).describe('Resized PNG, JPEG, or WebP image encoded as a data URL'),
   "sceneImageDataUrls": zod.array(zod.string().min(1).max(generateAvatarVideoBodySceneImageDataUrlsItemMax)).max(generateAvatarVideoBodySceneImageDataUrlsMax).optional().describe('Optional additional photos used as visual scene references'),
+  "agnesApiKey": zod.string().min(1).max(generateAvatarVideoBodyAgnesApiKeyMax).optional().describe('Optional Agnes API key used only for this render and never persisted'),
   "scriptText": zod.string().min(1).max(generateAvatarVideoBodyScriptTextMax),
   "sceneDirection": zod.string().max(generateAvatarVideoBodySceneDirectionMax).optional(),
   "format": zod.enum(['16:9', '9:16', '1:1']),
   "audioSource": zod.enum(['post_stitch', 'model']),
-  "audioVoice": zod.enum(['fr-FR-DeniseNeural', 'fr-FR-HenriNeural', 'fr-FR-EloiseNeural', 'fr-FR-BrigitteNeural']).describe('Edge TTS voice used when post-stitch audio is selected')
+  "audioVoice": zod.enum(['fr-FR-DeniseNeural', 'fr-FR-HenriNeural', 'fr-FR-EloiseNeural', 'fr-FR-BrigitteNeural']).describe('Edge TTS voice used when post-stitch audio is selected'),
+  "videoDuration": zod.union([zod.literal(15),zod.literal(30),zod.literal(45),zod.literal(60)]).default(generateAvatarVideoBodyVideoDurationDefault).describe('Requested final video duration in seconds'),
+  "sceneCount": zod.union([zod.literal(1),zod.literal(2),zod.literal(3)]).default(generateAvatarVideoBodySceneCountDefault).describe('Number of distinct video plans to generate')
 })
 
 export const GenerateAvatarVideoResponse = zod.object({

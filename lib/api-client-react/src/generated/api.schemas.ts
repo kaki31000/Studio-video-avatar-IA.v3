@@ -52,6 +52,31 @@ export const AvatarVideoInputAudioVoice = {
   'fr-FR-BrigitteNeural': 'fr-FR-BrigitteNeural',
 } as const;
 
+/**
+ * Requested final video duration in seconds
+ */
+export type AvatarVideoInputVideoDuration = typeof AvatarVideoInputVideoDuration[keyof typeof AvatarVideoInputVideoDuration];
+
+
+export const AvatarVideoInputVideoDuration = {
+  NUMBER_15: 15,
+  NUMBER_30: 30,
+  NUMBER_45: 45,
+  NUMBER_60: 60,
+} as const;
+
+/**
+ * Number of distinct video plans to generate
+ */
+export type AvatarVideoInputSceneCount = typeof AvatarVideoInputSceneCount[keyof typeof AvatarVideoInputSceneCount];
+
+
+export const AvatarVideoInputSceneCount = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+} as const;
+
 export interface AvatarVideoInput {
   /**
      * Resized PNG, JPEG, or WebP image encoded as a data URL
@@ -67,6 +92,12 @@ export interface AvatarVideoInput {
      */
   sceneImageDataUrls?: string[];
   /**
+     * Optional Agnes API key used only for this render and never persisted
+     * @minLength 1
+     * @maxLength 512
+     */
+  agnesApiKey?: string;
+  /**
      * @minLength 1
      * @maxLength 16000
      */
@@ -77,6 +108,10 @@ export interface AvatarVideoInput {
   audioSource: AvatarVideoInputAudioSource;
   /** Edge TTS voice used when post-stitch audio is selected */
   audioVoice: AvatarVideoInputAudioVoice;
+  /** Requested final video duration in seconds */
+  videoDuration?: AvatarVideoInputVideoDuration;
+  /** Number of distinct video plans to generate */
+  sceneCount?: AvatarVideoInputSceneCount;
 }
 
 export interface AvatarVideoCreated {

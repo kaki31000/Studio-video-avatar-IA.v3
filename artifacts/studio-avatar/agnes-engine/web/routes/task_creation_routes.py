@@ -589,6 +589,7 @@ async def create_poetry_task(
 
 @router.post("/api/tasks/anchor")
 async def create_anchor_task(
+    agnes_api_key: str = Form(""),
     anchor_prompt: str = Form(""),
     anchor_reference_image: str = Form(""),
     scene_reference_images: str = Form("[]"),
@@ -610,12 +611,14 @@ async def create_anchor_task(
     subtitle_stroke_color: str = Form("black"),
     subtitle_stroke_width: int = Form(2),
     subtitle_bg_color: str = Form("black@0.5"),
+    video_duration: int = Form(15),
+    scene_count: int = Form(1),
     # v6.0 手动模式
     execution_mode: str = Form("auto"),
     pause_points: str = Form(""),
 ):
     """创建数字人口播任务（类型 4 / Phase 3）。"""
-    api_key = get_api_key()
+    api_key = agnes_api_key.strip() or get_api_key()
     if not api_key:
         raise HTTPException(status_code=400, detail=API_KEY_MISSING_MSG)
 
@@ -635,10 +638,14 @@ async def create_anchor_task(
         raise HTTPException(status_code=400, detail="scene_reference_images must be valid JSON") from exc
     if (
         not isinstance(scene_reference_paths, list)
-        or len(scene_reference_paths) > 5
+        or len(scene_reference_paths) > 2
         or any(not isinstance(path, str) or not path for path in scene_reference_paths)
     ):
-        raise HTTPException(status_code=400, detail="最多支持 5 张额外参考照片")
+        raise HTTPException(status_code=400, detail="最多支持 2 张额外参考照片")
+    if video_duration not in {15, 30, 45, 60}:
+        raise HTTPException(status_code=422, detail="视频时长必须为 15、30、45 或 60 秒")
+    if scene_count not in {1, 2, 3}:
+        raise HTTPException(status_code=422, detail="分镜数量必须为 1、2 或 3")
 
     task_id = uuid.uuid4().hex[:12]
     name = f"anchor_{task_id}"
@@ -663,6 +670,8 @@ async def create_anchor_task(
         scene_reference_images=scene_reference_paths,
         script_text=script_text.strip(),
         audio_source=audio_source,
+        video_duration=video_duration,
+        scene_count=scene_count,
         video_width=video_width,
         video_height=video_height,
         audio_config=audio_config,

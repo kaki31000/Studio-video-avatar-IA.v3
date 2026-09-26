@@ -12,6 +12,8 @@ export * from './avatarVideoInput';
 export * from './avatarVideoInputAudioSource';
 export * from './avatarVideoInputAudioVoice';
 export * from './avatarVideoInputFormat';
+export * from './avatarVideoInputSceneCount';
+export * from './avatarVideoInputVideoDuration';
 export * from './avatarVideoStopped';
 export * from './avatarVideoTask';
 export * from './avatarVideoTaskStatus';

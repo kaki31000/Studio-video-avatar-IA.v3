@@ -842,18 +842,19 @@ class AudioOverlayMixin:
         srt_path: Optional[str],
         output_path: str,
         audio_duration: float,
+        target_duration: Optional[float] = None,
         subtitle_style: Optional[SubtitleStyle] = None,
         subtitle_styles_path: Optional[str] = None,
         video_width: int = 768,
         video_height: int = 1344,
     ) -> str:
-        """将 5 秒主播动态视频片段循环拼接为覆盖完整音频时长，再叠加音频和字幕。
+        """将主播动态视频片段循环拼接为覆盖完整音频时长，再叠加音频和字幕。
 
         核心思路：循环拼接 + 裁剪 + 统一叠加音频/字幕。
         接缝处用 ffmpeg xfade 做 0.3 秒交叉淡入淡出过渡。
 
         Args:
-            clip_path: 5 秒主播动态视频片段路径。
+            clip_path: 主播动态视频片段路径。
             audio_path: TTS 读稿音频路径。
             srt_path: SRT 字幕文件路径（可选）。
             output_path: 最终输出视频路径。
@@ -879,8 +880,11 @@ class AudioOverlayMixin:
         if clip_duration <= 0:
             clip_duration = 5.0
 
-        # Step 2: Calculate loop count
-        needed = audio_duration + 2.0  # extra 2s padding
+        # Step 2: Calculate loop count. A requested avatar duration is the
+        # minimum final duration; a longer narration is preserved so speech
+        # is not cut off.
+        desired_duration = max(audio_duration, float(target_duration or 0))
+        needed = desired_duration if target_duration else audio_duration + 2.0
         n = math.ceil(needed / clip_duration) + 1
 
         # Step 3: Build concat file list for ffmpeg
@@ -927,9 +931,11 @@ class AudioOverlayMixin:
         audio_clip_obj = None
         try:
             concat_video_clip = VideoFileClip(looped_path)
-            audio_clip_obj = AudioFileClip(audio_path)
+            audio_clip_obj = AudioFileClip(audio_path) if audio_path else None
 
             _AUDIO_VOLUME_FACTOR = 1.5
+            if audio_clip_obj is None:
+                raise RuntimeError("An audio track is required for post-stitch composition")
             audio_clip_obj = audio_clip_obj.with_volume_scaled(_AUDIO_VOLUME_FACTOR)
 
             video_with_audio = concat_video_clip.with_audio(audio_clip_obj)

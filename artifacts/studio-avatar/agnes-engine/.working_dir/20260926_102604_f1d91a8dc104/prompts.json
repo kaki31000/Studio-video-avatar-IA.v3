@@ -1,0 +1,4 @@
+{
+  "anchor_prompt": "Preserve the person's identity and appearance from the supplied portrait.\r\nCreate natural speech with realistic lip movement and expressive but restrained gestures.\r\nCreate one continuous cinematic shot that fits the script; follow any requested movement and setting direction.\r\nUse the additional reference photos as the scene background and environment. Keep the selected avatar photo as the primary identity and do not replace the avatar with people from the background photos.",
+  "model_audio_prompt": "Enthousiaste, le présentateur sourit largement et lève la main en criant, \"Allez, la brigade !\" Il effectue un geste d'encouragement, \"Mise en place…\" Puis, se posant, il pointe délicatement vers l'avant, \"chaque geste compte…\" Souriant chaleureusement, il accueille le public, \"Bienvenue…\" Finalement, plissant l'œil avec excitation, il penche la tête, \"ça va chauffer !\""
+}
