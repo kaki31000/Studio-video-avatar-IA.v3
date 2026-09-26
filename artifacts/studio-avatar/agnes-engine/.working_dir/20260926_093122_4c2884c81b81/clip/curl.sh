@@ -1,0 +1,1 @@
+curl -s -H "Authorization: Bearer $AGNES_API_KEY" "https://apihub.agnes-ai.com/agnesapi?video_id=video_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDphZ25lcy12aWRlby12Mi4wO3ZpZGVvX2lkOnZpZGVvX2U2YjMwMjc0NDZiZDQ3ZDM4MDg5ODNjOWI4MzdkNjc3"

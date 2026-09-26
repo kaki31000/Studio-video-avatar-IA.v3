@@ -156,7 +156,7 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
     "Create natural speech with realistic lip movement and expressive but restrained gestures.",
     "Create one continuous cinematic shot that fits the script; follow any requested movement and setting direction.",
     sceneImages.length
-      ? `Use the additional reference photos as visual scene references while keeping the selected avatar photo as the primary identity.`
+      ? "Use the additional reference photos as the scene background and environment. Keep the selected avatar photo as the primary identity and do not replace the avatar with people from the background photos."
       : "",
     direction ? `Direction de scène: ${direction}` : "",
   ].filter(Boolean).join("\n");

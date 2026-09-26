@@ -1,0 +1,4 @@
+{
+  "anchor_prompt": "Preserve the person's identity and appearance from the supplied portrait.\r\nCreate natural speech with realistic lip movement and expressive but restrained gestures.\r\nCreate one continuous cinematic shot that fits the script; follow any requested movement and setting direction.\r\nUse the additional reference photos as visual scene references while keeping the selected avatar photo as the primary identity.",
+  "model_audio_prompt": "The host speaks in a dynamic, inspiring, and professional tone, matching the French narration. They maintain a stable body position with natural, realistic lip movements. Use gentle, restrained hand gestures to emphasize key points subtly. The facial expression conveys warmth and enthusiasm without being dramatic. Focus on the host speaking directly to the camera, engaging the viewer with eye contact and a slight, natural nod."
+}

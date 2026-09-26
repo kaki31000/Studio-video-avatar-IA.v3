@@ -220,7 +220,7 @@ function AdditionalPhotosField({ images, onImages, onMakeAvatar }: {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold">Photos supplémentaires <span className="font-normal text-[hsl(var(--muted-foreground))]">(facultatif)</span></p>
-          <p className="mt-1 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Elles servent de références visuelles pour les plans Agnes.</p>
+           <p className="mt-1 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Elles servent de références pour le décor et l’arrière-plan des plans Agnes.</p>
         </div>
         <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-xs font-bold hover:border-[hsl(var(--foreground)/.5)]" data-testid="button-add-scene-photos"><Upload className="h-3.5 w-3.5" /> Ajouter</button>
       </div>
@@ -512,7 +512,7 @@ function Home() {
                     <div className="mt-2 flex justify-between gap-3"><p className="text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Agnes transforme ce script en parole pour l’avatar.</p><span className="shrink-0 font-mono text-[10px] text-[hsl(var(--muted-foreground))]" data-testid="text-script-count">{characterCount.toLocaleString('fr-FR')} / 16 000</span></div>
                     <label htmlFor="direction" className="mt-7 block text-sm font-bold">Direction du plan <span className="font-normal text-[hsl(var(--muted-foreground))]">(facultatif)</span></label>
                     <textarea id="direction" value={sceneDirection} onChange={(event) => setSceneDirection(event.target.value)} placeholder="Ex. lumière douce, regard caméra, ton complice..." rows={3} maxLength={1800} className="mt-3 w-full resize-y rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted)/.35)] px-4 py-3 text-sm leading-relaxed placeholder:text-[hsl(var(--muted-foreground)/.7)] focus:border-[hsl(var(--foreground))] focus:outline-none" data-testid="textarea-direction" />
-                    <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Le moteur utilise un portrait de référence et produit un plan animé. Les photos de décor distinctes par scène ne sont pas encore prises en charge.</p>
+                     <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Les photos supplémentaires guident le décor et l’arrière-plan, tandis que le portrait reste l’identité principale de l’avatar.</p>
                   </section>
                 </div>
                 <div className="space-y-6">

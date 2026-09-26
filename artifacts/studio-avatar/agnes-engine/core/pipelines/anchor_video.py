@@ -225,11 +225,17 @@ class AnchorPipeline(MultiScenePipeline):
         await self._emit("clip_prompts", "completed", "动态描述生成完成", _PROGRESS_CLIP_PROMPTS_DONE)
 
     # ------------------------------------------------------------------
-    # 视频生成（单段 i2v 循环，覆写通用实现）
+    # 视频生成（单段 i2v/keyframes 循环，覆写通用实现）
     # ------------------------------------------------------------------
 
     async def _generate_videos(self) -> None:
-        """生成单段 15 秒 i2v 视频，最终按音频长度循环使用。"""
+        """生成单段 15 秒头像视频，最终按音频长度循环使用。
+
+        Without scene references this is ti2vid with the original portrait.
+        When background photos are provided, the portrait remains the first
+        reference and up to two photos are added as Agnes keyframe/scene
+        references.
+        """
         scene = self._state.scenes[0]
         anchor_image_path = self._state.anchor_image_path
         prompt = scene.scene_prompt
@@ -262,15 +268,30 @@ class AnchorPipeline(MultiScenePipeline):
         if saved_video_id:
             video_id = saved_video_id
         else:
-            # Always send exactly one image here. Agnes selects ti2vid and
-            # places the reference in the JSON `image` field only for a
-            # single reference; adding scene images would switch to
-            # keyframes and could change the uploaded avatar.
             if not anchor_image_path or not os.path.isfile(anchor_image_path):
                 raise RuntimeError("主播原始图片不可用，无法提交 Image-to-Video 请求")
+            background_images = [
+                path for path in (self._state.scene_reference_images or [])
+                if path and os.path.isfile(path)
+            ][:2]
+            reference_images = [anchor_image_path, *background_images]
+            if background_images:
+                prompt = (
+                    f"{prompt}\n"
+                    "Use the additional reference images as the scene background "
+                    "and environment. Keep the avatar identity, face, and mascot "
+                    "appearance from the first reference image; do not replace "
+                    "the avatar with the background subjects."
+                )
+                logger.info(
+                    "[Anchor] using original portrait plus %d background reference(s)",
+                    len(background_images),
+                )
+            else:
+                logger.info("[Anchor] using original portrait as the sole ti2vid reference")
             video_id = await self.video_generator.submit_video(
                 prompt=prompt,
-                reference_image_paths=[anchor_image_path],
+                reference_image_paths=reference_images,
                 duration=_ANCHOR_CLIP_DURATION_SECONDS,
                 width=vw,
                 height=vh,
