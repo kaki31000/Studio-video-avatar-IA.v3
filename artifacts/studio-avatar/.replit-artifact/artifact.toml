@@ -39,7 +39,7 @@ run = "cd agnes-engine && ../../../.pythonlibs/bin/python -m uvicorn replit_prox
 args = ["uv", "sync", "--project", ".", "--no-dev"]
 
 [services.production.run]
-args = ["bash", "-lc", "cd agnes-engine && ../../../.venv/bin/python -m uvicorn replit_proxy:app --host 0.0.0.0 --port \"$PORT\""]
+args = ["bash", "-lc", "cd artifacts/studio-avatar/agnes-engine && ../../../.venv/bin/python -m uvicorn replit_proxy:app --host 0.0.0.0 --port \"$PORT\""]
 
 [services.production.run.env]
 PORT = "19628"
