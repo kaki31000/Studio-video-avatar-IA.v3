@@ -38,7 +38,6 @@ import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 const queryClient = new QueryClient();
 
 type Format = AvatarVideoInput['format'];
-type AudioSource = AvatarVideoInput['audioSource'];
 type AudioVoice = AvatarVideoInput['audioVoice'];
 type VideoDuration = NonNullable<AvatarVideoInput['videoDuration']>;
 type SceneCount = NonNullable<AvatarVideoInput['sceneCount']>;
@@ -413,7 +412,6 @@ function Home() {
   const [scriptText, setScriptText] = useState('');
   const [sceneDirection, setSceneDirection] = useState('');
   const [format, setFormat] = useState<Format>('16:9');
-  const [audioSource, setAudioSource] = useState<AudioSource>('model');
   const [audioVoice, setAudioVoice] = useState<AudioVoice>('fr-FR-DeniseNeural');
   const [agnesApiKey, setAgnesApiKey] = useState('');
   const [videoDuration, setVideoDuration] = useState<VideoDuration>(15);
@@ -458,7 +456,7 @@ function Home() {
       scriptText: scriptText.trim(),
       sceneDirection: sceneDirection.trim() || undefined,
       format,
-      audioSource,
+      audioSource: 'post_stitch',
       audioVoice,
       videoDuration,
       sceneCount,
@@ -559,10 +557,7 @@ function Home() {
                      <input id="agnes-api-key" type="password" value={agnesApiKey} onChange={(event) => setAgnesApiKey(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Utiliser la clé du serveur par défaut" className="mt-3 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted)/.35)] px-3 py-3 text-sm focus:border-[hsl(var(--foreground))] focus:outline-none" data-testid="input-agnes-api-key" />
                      <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Cette clé est transmise uniquement à ce rendu. Elle n’est pas enregistrée dans le navigateur, la tâche ou les journaux.</p>
                     <label className="mt-7 block text-sm font-bold">Audio</label>
-                    <div className="mt-3 space-y-2">
-                      <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 ${audioSource === 'model' ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--muted)/.62)]' : 'border-[hsl(var(--border))]'}`}><input type="radio" name="audio" value="model" checked={audioSource === 'model'} onChange={() => setAudioSource('model')} className="mt-0.5 accent-[hsl(var(--foreground))]" data-testid="radio-audio-model" /><span><span className="block text-sm font-semibold">Voix générée avec la vidéo</span><span className="mt-1 block text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Agnes produit la parole dans le plan animé; la synchronisation dépend du modèle.</span></span></label>
-                      <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 ${audioSource === 'post_stitch' ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--muted)/.62)]' : 'border-[hsl(var(--border))]'}`}><input type="radio" name="audio" value="post_stitch" checked={audioSource === 'post_stitch'} onChange={() => setAudioSource('post_stitch')} className="mt-0.5 accent-[hsl(var(--foreground))]" data-testid="radio-audio-post-stitch" /><span><span className="block text-sm font-semibold">Voix off ajoutée après l’animation</span><span className="mt-1 block text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">La voix est assemblée au clip après le rendu.</span></span></label>
-                    </div>
+                     <div className="mt-3 rounded-xl border border-[hsl(var(--foreground))] bg-[hsl(var(--muted)/.62)] p-3.5" data-testid="audio-post-stitch-only"><p className="text-sm font-semibold">Voix off française ajoutée après l’animation</p><p className="mt-1 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Agnes génère uniquement le visuel. ElevenLabs lit ensuite votre script et le studio fusionne le MP3 avec la vidéo.</p></div>
                     <label htmlFor="voice" className="mt-6 block text-sm font-bold">Voix</label>
                     <select id="voice" value={audioVoice} onChange={(event) => setAudioVoice(event.target.value as AudioVoice)} className="mt-3 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted)/.35)] px-3 py-3 text-sm focus:border-[hsl(var(--foreground))] focus:outline-none" data-testid="select-audio-voice">
                       {voiceOptions.map((voice) => <option key={voice.value} value={voice.value}>{voice.label} — {voice.hint}</option>)}

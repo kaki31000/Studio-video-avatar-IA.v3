@@ -1,0 +1,4 @@
+{
+  "anchor_prompt": "Preserve the person's identity and appearance from the supplied portrait.\r\nCreate natural speech with realistic lip movement and expressive but restrained gestures.\r\nCreate one continuous cinematic shot that fits the script; follow any requested movement and setting direction.\r\nUse the additional reference photos as the scene background and environment. Keep the selected avatar photo as the primary identity and do not replace the avatar with people from the background photos.",
+  "smooth_loop_prompt": "几乎静止，胸部随呼吸极轻微起伏，眼神含微妙温暖，嘴角有几乎不可察觉的温柔微笑，极细微点头，保持面部与身体近乎静止如活人肖像。"
+}

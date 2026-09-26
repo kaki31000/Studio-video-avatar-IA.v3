@@ -268,7 +268,9 @@ components:
           enum: ["16:9", "9:16", "1:1"]
         audioSource:
           type: string
-          enum: [post_stitch, model]
+          enum: [post_stitch]
+          default: post_stitch
+          description: Audio is always generated after the silent Agnes video with the dedicated TTS provider
         audioVoice:
           type: string
           enum:
@@ -276,7 +278,7 @@ components:
             - fr-FR-HenriNeural
             - fr-FR-EloiseNeural
             - fr-FR-BrigitteNeural
-          description: Edge TTS voice used when post-stitch audio is selected
+           description: French voice mapped to the ElevenLabs TTS provider
         videoDuration:
           type: integer
           enum: [15, 30, 45, 60]

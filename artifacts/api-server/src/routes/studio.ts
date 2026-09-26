@@ -154,8 +154,9 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
   const direction = input.sceneDirection?.trim();
   const anchorPrompt = [
     "Preserve the person's identity and appearance from the supplied portrait.",
-    "Create natural speech with realistic lip movement and expressive but restrained gestures.",
-    "Create one continuous cinematic shot that fits the script; follow any requested movement and setting direction.",
+    "Create a silent visual performance with natural facial expression and restrained gestures.",
+    "Do not generate spoken dialogue, voice, lyrics, or any audio from the video model.",
+    "Create one continuous cinematic shot that fits the visual direction; the French voice-over is added after video generation.",
     sceneImages.length
       ? "Use the additional reference photos as the scene background and environment. Keep the selected avatar photo as the primary identity and do not replace the avatar with people from the background photos."
       : "",
@@ -170,7 +171,7 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
   form.set("scene_reference_images", JSON.stringify(imagePaths.slice(1)));
   form.set("video_duration", String(input.videoDuration ?? 15));
   form.set("scene_count", String(input.sceneCount ?? 1));
-  form.set("audio_source", input.audioSource);
+  form.set("audio_source", "post_stitch");
   form.set("video_width", String(dimensions.width));
   form.set("video_height", String(dimensions.height));
   form.set("audio_enabled", "true");

@@ -1,19 +1,34 @@
-"""core.audio.tts — TTS 统一接口：EdgeTTSEngine + SilentTTSEngine
+"""core.audio.tts — TTS 统一接口：ElevenLabs、EdgeTTS 与静音引擎
 
-基于 edge_tts（免费 Azure Edge TTS）和静音占位两种实现。
+数字人流水线使用 ElevenLabs 生成最终旁白；EdgeTTS 保留给其他旧流水线。
 """
 
 import asyncio
+import base64
+import re
 import logging
 import os
 from abc import ABC, abstractmethod
+from types import SimpleNamespace
 from typing import Optional, Tuple
 
 import edge_tts
+import requests
 
 from core.async_io import async_open
 
 logger = logging.getLogger(__name__)
+
+
+_ELEVENLABS_VOICE_IDS = {
+    # ElevenLabs multilingual_v2 accepts French for these built-in voices.
+    # The UI keeps its existing French voice labels; this mapping keeps the
+    # client contract stable while moving synthesis to ElevenLabs.
+    "fr-FR-DeniseNeural": "EXAVITQu4vr4xnSDxMaL",
+    "fr-FR-HenriNeural": "pNInz6obpgDQGcFmaJgB",
+    "fr-FR-EloiseNeural": "21m00Tcm4TlvDq8ikWAM",
+    "fr-FR-BrigitteNeural": "MF3mGyEYCl7XYWbV9V6",
+}
 
 
 class TTSEngine(ABC):
@@ -25,6 +40,148 @@ class TTSEngine(ABC):
     ) -> Tuple[str, object]:
         """生成音频文件，返回 (audio_path, sub_maker_or_cues)。"""
         ...
+
+
+class ElevenLabsTTSEngine(TTSEngine):
+    """ElevenLabs multilingual French voice generation.
+
+    The API is called only after Agnes has finished the silent visual clips.
+    ``with-timestamps`` gives us character alignment which is converted into
+    word cues for the existing subtitle pipeline.
+    """
+
+    endpoint = "https://api.elevenlabs.io/v1/text-to-speech"
+    model_id = "eleven_multilingual_v2"
+
+    async def generate(
+        self, text: str, output_path: str, voice: str = "fr-FR-DeniseNeural", rate: str = "+0%"
+    ) -> Tuple[str, object]:
+        return await asyncio.to_thread(
+            self._generate_sync,
+            text,
+            output_path,
+            voice,
+            rate,
+        )
+
+    def _generate_sync(self, text: str, output_path: str, voice: str, rate: str) -> Tuple[str, object]:
+        api_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("La clé ElevenLabs n’est pas configurée côté serveur.")
+        if not text.strip():
+            raise RuntimeError("Le texte de la voix off est vide.")
+
+        voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
+        if not voice_id:
+            voice_id = _ELEVENLABS_VOICE_IDS.get(voice, _ELEVENLABS_VOICE_IDS["fr-FR-DeniseNeural"])
+
+        # ElevenLabs accepts an explicit rate only through voice settings in
+        # newer API versions. The current UI uses +0%, so omit it unless a
+        # future caller provides a non-default rate.
+        voice_settings = {
+            "stability": 0.5,
+            "similarity_boost": 0.75,
+            "style": 0.0,
+            "use_speaker_boost": True,
+        }
+        if rate not in ("", "+0%", "0%"):
+            logger.info("[TTS] ElevenLabs rate hint ignored by provider: %s", rate)
+
+        logger.info(
+            "[TTS] Generating ElevenLabs audio: voice=%s, text=%d chars",
+            voice_id,
+            len(text),
+        )
+        try:
+            response = requests.post(
+                f"{self.endpoint}/{voice_id}/with-timestamps",
+                headers={
+                    "xi-api-key": api_key,
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "text": text,
+                    "model_id": self.model_id,
+                    "voice_settings": voice_settings,
+                },
+                timeout=(15, 180),
+            )
+        except requests.RequestException as exc:
+            raise RuntimeError("Impossible de joindre ElevenLabs pour générer la voix off.") from exc
+
+        if not response.ok:
+            detail = response.text[:300].replace("\n", " ").strip()
+            raise RuntimeError(
+                f"ElevenLabs a refusé la synthèse ({response.status_code})."
+                + (f" {detail}" if detail else "")
+            )
+
+        try:
+            payload = response.json()
+            audio_base64 = payload.get("audio_base64", "")
+            audio_bytes = base64.b64decode(audio_base64, validate=True)
+        except (ValueError, TypeError, base64.binascii.Error) as exc:
+            raise RuntimeError("ElevenLabs a renvoyé un fichier audio invalide.") from exc
+        if not audio_bytes:
+            raise RuntimeError("ElevenLabs a renvoyé une voix off vide.")
+
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        tmp_path = output_path + ".tmp"
+        try:
+            with open(tmp_path, "wb") as audio_file:
+                audio_file.write(audio_bytes)
+            os.replace(tmp_path, output_path)
+        except OSError as exc:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+            raise RuntimeError("Impossible d’enregistrer la voix off ElevenLabs.") from exc
+
+        cues = self._alignment_to_cues(payload.get("alignment") or payload.get("normalized_alignment"))
+        sub_maker = SimpleNamespace(cues=cues) if cues else None
+        logger.info("[TTS] ElevenLabs audio saved: %s (%d cues)", output_path, len(cues))
+        return output_path, sub_maker
+
+    @staticmethod
+    def _alignment_to_cues(alignment: object) -> list:
+        if not isinstance(alignment, dict):
+            return []
+        characters = alignment.get("characters")
+        starts = alignment.get("character_start_times_seconds")
+        ends = alignment.get("character_end_times_seconds")
+        if not isinstance(characters, list) or not isinstance(starts, list) or not isinstance(ends, list):
+            return []
+        if not (len(characters) == len(starts) == len(ends)):
+            return []
+
+        cues = []
+        word_start = None
+        for index, character in enumerate(characters):
+            value = str(character)
+            if value.isspace():
+                if word_start is not None:
+                    cues.append(
+                        SimpleNamespace(
+                            start=float(starts[word_start]),
+                            end=float(ends[index - 1]),
+                            content="".join(str(item) for item in characters[word_start:index]),
+                        )
+                    )
+                    word_start = None
+                continue
+            if word_start is None:
+                word_start = index
+        if word_start is not None:
+            cues.append(
+                SimpleNamespace(
+                    start=float(starts[word_start]),
+                    end=float(ends[-1]),
+                    content="".join(str(item) for item in characters[word_start:]),
+                )
+            )
+        return [cue for cue in cues if cue.content.strip() and cue.end > cue.start]
 
 
 class EdgeTTSEngine(TTSEngine):

@@ -1,0 +1,170 @@
+{
+  "format_version": "1.0",
+  "task_id": "05f712802533",
+  "task_type": "anchor",
+  "task_status": "completed",
+  "current_mode": "auto",
+  "current_checkpoint": "",
+  "manual_config": {
+    "enabled": false,
+    "pause_points": [],
+    "approved_checkpoints": [],
+    "modified_artifacts": [],
+    "current_checkpoint": "",
+    "timeout_minutes": 0
+  },
+  "dir_name": "20260926_132950_05f712802533",
+  "working_dir": "/home/runner/workspace/artifacts/studio-avatar/agnes-engine/.working_dir/20260926_132950_05f712802533",
+  "artifacts": [
+    {
+      "artifact_id": "anchor:anchor_image",
+      "name_key": "artAnchorImage",
+      "category": "image",
+      "scope": "task",
+      "scope_index": null,
+      "path": "anchor.png",
+      "exists": false,
+      "size": 0,
+      "editable": true,
+      "schema_hint": "数字人形象 PNG。可替换后影响数字人视频。",
+      "generated_by_step": "generate_anchor",
+      "preview_url": "/api/tasks/05f712802533/artifacts/anchor:anchor_image/file"
+    },
+    {
+      "artifact_id": "anchor:clip_prompts",
+      "name_key": "artClipPrompts",
+      "category": "json",
+      "scope": "task",
+      "scope_index": null,
+      "path": "prompts.json",
+      "exists": true,
+      "size": 725,
+      "editable": true,
+      "schema_hint": "数字人视频 prompt JSON（prompts.json）。",
+      "generated_by_step": "clip_prompts",
+      "preview_url": "/api/tasks/05f712802533/artifacts/anchor:clip_prompts/file"
+    },
+    {
+      "artifact_id": "anchor:clip",
+      "name_key": "artClip",
+      "category": "video",
+      "scope": "task",
+      "scope_index": null,
+      "path": "clip/clip.mp4",
+      "exists": false,
+      "size": 0,
+      "editable": true,
+      "schema_hint": "数字人循环视频 MP4。",
+      "generated_by_step": "clip_gen",
+      "preview_url": "/api/tasks/05f712802533/artifacts/anchor:clip/file"
+    },
+    {
+      "artifact_id": "anchor:audio",
+      "name_key": "artAudio",
+      "category": "audio",
+      "scope": "task",
+      "scope_index": null,
+      "path": "full_narration.mp3",
+      "exists": true,
+      "size": 120240,
+      "editable": true,
+      "schema_hint": "配音音频 MP3。同名 .txt 为旁白纯文本，建议先修改文本再重新生成音频。",
+      "generated_by_step": "audio",
+      "preview_url": "/api/tasks/05f712802533/artifacts/anchor:audio/file"
+    },
+    {
+      "artifact_id": "anchor:subtitle",
+      "name_key": "artSubtitle",
+      "category": "subtitle",
+      "scope": "task",
+      "scope_index": null,
+      "path": "full_subtitle.srt",
+      "exists": true,
+      "size": 494,
+      "editable": true,
+      "schema_hint": "标准 SubRip SRT（UTF-8，每条 ≤2 行）。可手动修正断句与时间轴。",
+      "generated_by_step": "subtitle",
+      "preview_url": "/api/tasks/05f712802533/artifacts/anchor:subtitle/file"
+    },
+    {
+      "artifact_id": "anchor:final_video",
+      "name_key": "artFinalVideo",
+      "category": "video",
+      "scope": "task",
+      "scope_index": null,
+      "path": "final_video.mp4",
+      "exists": true,
+      "size": 4292297,
+      "editable": true,
+      "schema_hint": "最终成片 MP4（含配音与字幕）。",
+      "generated_by_step": "concatenate",
+      "preview_url": "/api/tasks/05f712802533/artifacts/anchor:final_video/file"
+    }
+  ],
+  "files": [
+    {
+      "path": "clip_1/clip.mp4",
+      "size": 2077957
+    },
+    {
+      "path": "clip_1/curl.sh",
+      "size": 249
+    },
+    {
+      "path": "clip_1/task.json",
+      "size": 170
+    },
+    {
+      "path": "clip_2/clip.mp4",
+      "size": 2473312
+    },
+    {
+      "path": "clip_2/curl.sh",
+      "size": 249
+    },
+    {
+      "path": "clip_2/task.json",
+      "size": 170
+    },
+    {
+      "path": "clip_3/clip.mp4",
+      "size": 2118798
+    },
+    {
+      "path": "clip_3/curl.sh",
+      "size": 249
+    },
+    {
+      "path": "clip_3/task.json",
+      "size": 170
+    },
+    {
+      "path": "final_video.mp4",
+      "size": 4292297
+    },
+    {
+      "path": "full_narration.mp3",
+      "size": 120240
+    },
+    {
+      "path": "full_narration.mp3.cues.json",
+      "size": 582
+    },
+    {
+      "path": "full_narration.txt",
+      "size": 268
+    },
+    {
+      "path": "full_subtitle.srt",
+      "size": 494
+    },
+    {
+      "path": "prompts.json",
+      "size": 725
+    },
+    {
+      "path": "scene_reel.mp4",
+      "size": 4212418
+    }
+  ]
+}

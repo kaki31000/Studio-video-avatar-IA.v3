@@ -1,8 +1,7 @@
 """core.pipelines.anchor_video -- 数字人口播流水线（类型 4）
 
-支持两种音频模式：
-  - post_stitch: 生成一段短 i2v 视频循环 + TTS 后拼接音频（音频可控，嘴型较难匹配）
-  - model:      交由视频模型自身生成音频（音频由模型控制，效果不可控）
+Agnes 只生成无声视觉片段；ElevenLabs 生成旁白，最后由 FFmpeg/MoviePy
+将音频与画面合成。
 
 v4.0 重构：继承 MultiScenePipeline，复用模板方法 run() 与步骤编排。
 锚点形象图生成放入 _build_reference_images，clip prompt 生成放入 _build_scenes，
@@ -75,9 +74,7 @@ _CHARS_PER_SEC = 4.0
 class AnchorPipeline(MultiScenePipeline):
     """数字人口播视频生成流水线。
 
-    根据 audio_source 分两种模式：
-      - post_stitch: 生成一段短 i2v 视频 → 循环播放 → TTS + 字幕叠加
-      - model:      生成一段视频（模型自带音频）→ 不含 TTS/字幕叠加
+    生成一段短 i2v 视频 → 循环播放 → ElevenLabs TTS + 字幕叠加。
     """
 
     def __init__(
@@ -189,7 +186,7 @@ class AnchorPipeline(MultiScenePipeline):
         if self._state.scenes and self._state.scenes[0].scene_prompt:
             logger.info("[Anchor] _build_scenes: SKIP (scene prompt already exists)")
             return
-        audio_source = self._state.audio_source or "post_stitch"
+        audio_source = "post_stitch"
         anchor_prompt = self._state.anchor_prompt or self._get_default_anchor_prompt()
 
         await self._emit(
@@ -198,28 +195,15 @@ class AnchorPipeline(MultiScenePipeline):
             else "生成含口播的视频描述...", _PROGRESS_CLIP_PROMPTS_START,
         )
 
-        if audio_source == "post_stitch":
-            prompt = await asyncio.to_thread(
-                self.screenwriter.generate_anchor_smooth_loop_prompt,
-                anchor_prompt=anchor_prompt,
-            )
-            prompt = prompt.strip()
-            self.save_prompts({
-                "anchor_prompt": anchor_prompt,
-                "smooth_loop_prompt": prompt,
-            })
-        else:
-            full_text = self._state.script_text
-            prompt = await asyncio.to_thread(
-                self.screenwriter.generate_anchor_model_audio_prompt,
-                anchor_prompt=anchor_prompt,
-                script_text=full_text,
-            )
-            prompt = prompt.strip()
-            self.save_prompts({
-                "anchor_prompt": anchor_prompt,
-                "model_audio_prompt": prompt,
-            })
+        prompt = await asyncio.to_thread(
+            self.screenwriter.generate_anchor_smooth_loop_prompt,
+            anchor_prompt=anchor_prompt,
+        )
+        prompt = prompt.strip()
+        self.save_prompts({
+            "anchor_prompt": anchor_prompt,
+            "smooth_loop_prompt": prompt,
+        })
 
         scene_count = max(1, min(3, int(self._state.scene_count or 1)))
         scene_duration = max(1, round(int(self._state.video_duration or 15) / scene_count))
@@ -345,28 +329,16 @@ class AnchorPipeline(MultiScenePipeline):
     # 音频生成（覆写通用实现）
     # ------------------------------------------------------------------
 
-    # v6.0 P3：model 音频模式下 audio/subtitle 步骤无实际产物（直接 return），
-    # 手动模式不应在无产物的检查点上暂停；post_stitch 模式全部可暂停。
     def _get_pausable_steps(self) -> set:
         from core.pipelines import _STEP_TO_CHECKPOINT
 
-        steps = set(_STEP_TO_CHECKPOINT.keys())
-        if (self._state.audio_source or "post_stitch") == "model":
-            steps.discard("step_audio")
-            steps.discard("step_subtitle")
-        return steps
+        return set(_STEP_TO_CHECKPOINT.keys())
 
     async def _generate_audio(self) -> object:
-        """生成整段 TTS 音频（post_stitch 模式）；model 模式返回 None。"""
-        audio_source = self._state.audio_source or "post_stitch"
-        if audio_source == "model":
-            logger.info("[Anchor] model audio mode: skip TTS")
-            return None
-
+        """使用 ElevenLabs 生成整段法语/多语言旁白，不调用 Agnes 音频。"""
         full_text = self._state.script_text
         if not full_text:
-            logger.warning("[Anchor] audio: empty text, skipping")
-            return None
+            raise RuntimeError("Le texte de la voix off est vide.")
 
         audio_path = os.path.join(self.working_dir, "full_narration.mp3")
         # v5.x 产物规范前置：导出读稿纯文本（供外部 Agent/工具处理）
@@ -375,26 +347,27 @@ class AnchorPipeline(MultiScenePipeline):
         if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
             self._state.combined_audio = audio_path
             logger.info("[Anchor] audio: file already exists, skipping")
-            # 续传：音频已存在则仅重采 cues，避免字幕退回 legacy 启发式
-            return await self._recover_sub_maker(
-                full_text, self._state.audio_config, self._state.subtitle_config,
-                audio_path,
-            )
+            return self._load_cues_cache(audio_path)
 
         audio_config = self._state.audio_config
         await self._emit("audio", "running", f"生成整段读稿 ({len(full_text)} 字)...", _PROGRESS_AUDIO_START)
 
-        sub_maker = await self._generate_audio_with_fallback(
-            output_path=audio_path,
-            text=full_text,
-            audio_config=audio_config,
-            subtitle_config=self._state.subtitle_config,
-            duration_sec=len(full_text) / _CHARS_PER_SEC,
-            empty_placeholder="",
-        )
+        from core.audio.tts import ElevenLabsTTSEngine
+
+        try:
+            _, sub_maker = await ElevenLabsTTSEngine().generate(
+                text=full_text,
+                output_path=audio_path,
+                voice=getattr(audio_config, "voice", "fr-FR-DeniseNeural"),
+                rate=getattr(audio_config, "rate", "+0%"),
+            )
+        except RuntimeError as exc:
+            logger.error("[Anchor] ElevenLabs voice generation failed: %s", exc)
+            raise RuntimeError(f"Échec de la voix off ElevenLabs : {exc}") from exc
 
         self._state.combined_audio = audio_path
         self.task_manager.update_state(combined_audio=audio_path)
+        self._save_cues_cache(audio_path, sub_maker)
         await self._emit("audio", "completed", "读稿音频生成完成", _PROGRESS_AUDIO_DONE)
         return sub_maker
 
@@ -403,12 +376,7 @@ class AnchorPipeline(MultiScenePipeline):
     # ------------------------------------------------------------------
 
     async def _generate_subtitles(self, sub_maker: object = None) -> None:
-        """生成整段 SRT 字幕（post_stitch 模式）；model 模式跳过。"""
-        audio_source = self._state.audio_source or "post_stitch"
-        if audio_source == "model":
-            logger.info("[Anchor] model audio mode: skip subtitle")
-            return
-
+        """根据 ElevenLabs 对齐信息生成整段 SRT 字幕。"""
         full_text = self._state.script_text
         if not full_text:
             logger.warning("[Anchor] subtitle: empty text, skipping")
@@ -541,36 +509,9 @@ class AnchorPipeline(MultiScenePipeline):
 
     async def _composite_final(self) -> str:
         """Assemble the distinct scene reel, then add audio and subtitles."""
-        audio_source = self._state.audio_source or "post_stitch"
         reel_path = os.path.join(self.working_dir, "scene_reel.mp4")
         await asyncio.to_thread(self._build_scene_reel, reel_path)
         target_duration = max(15, int(self._state.video_duration or 15))
-
-        if audio_source == "model":
-            output_path = os.path.join(self.working_dir, "final_video.mp4")
-            if os.path.exists(output_path):
-                try:
-                    validate_video_file(output_path)
-                except Exception as exc:
-                    logger.warning("[Anchor] invalid cached final video will be replaced: %s", exc)
-                    try:
-                        os.remove(output_path)
-                    except OSError:
-                        pass
-            if not os.path.exists(output_path):
-                temporary_path = f"{output_path}.part"
-                try:
-                    shutil.copyfile(reel_path, temporary_path)
-                    validate_video_file(temporary_path)
-                    os.replace(temporary_path, output_path)
-                except Exception:
-                    try:
-                        os.remove(temporary_path)
-                    except OSError:
-                        pass
-                    raise
-            logger.info("[Anchor] model audio mode: final video copied to %s", output_path)
-            return output_path
 
         output_path = os.path.join(self.working_dir, "final_video.mp4")
         if os.path.exists(output_path):
