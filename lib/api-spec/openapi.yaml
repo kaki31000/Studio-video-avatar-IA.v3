@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: studio
+    description: Avatar video generation
 paths:
   /healthz:
     get:
@@ -24,6 +26,194 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /studio/status:
+    get:
+      operationId: getStudioStatus
+      tags: [studio]
+      summary: Check the avatar video engine
+      responses:
+        "200":
+          description: Engine availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudioStatus"
+  /studio/generate:
+    post:
+      operationId: generateAvatarVideo
+      tags: [studio]
+      summary: Start a multi-scene avatar video
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvatarVideoInput"
+      responses:
+        "202":
+          description: Generation task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarVideoCreated"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Video engine is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Video engine returned an invalid response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /studio/tasks/{taskId}:
+    get:
+      operationId: getAvatarVideoTask
+      tags: [studio]
+      summary: Get generation progress
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarVideoTask"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "400":
+          description: Invalid task identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Unable to read task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Video engine is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /studio/tasks/{taskId}/stop:
+    post:
+      operationId: stopAvatarVideoTask
+      tags: [studio]
+      summary: Stop a running generation task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "200":
+          description: Stop request result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarVideoStopped"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "400":
+          description: Invalid task identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Task is no longer running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Video engine is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /studio/tasks/{taskId}/video:
+    get:
+      operationId: getAvatarVideoFile
+      tags: [studio]
+      summary: Download a completed avatar video
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "200":
+          description: Generated MP4 video
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Partial MP4 response for video playback
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Video not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "400":
+          description: Invalid task identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Unable to retrieve video
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Video engine is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +223,94 @@ components:
           type: string
       required:
         - status
+    StudioStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        engine:
+          type: string
+          enum: [agnes]
+        message:
+          type: string
+      required: [configured, engine, message]
+    AvatarVideoInput:
+      type: object
+      properties:
+        avatarImageDataUrl:
+          type: string
+          minLength: 1
+          maxLength: 12000000
+          description: Resized PNG, JPEG, or WebP image encoded as a data URL
+        sceneImageDataUrls:
+          type: array
+          maxItems: 2
+          items:
+            type: string
+            minLength: 1
+            maxLength: 12000000
+          description: Optional additional photos used as visual scene references
+        scriptText:
+          type: string
+          minLength: 1
+          maxLength: 16000
+        sceneDirection:
+          type: string
+          maxLength: 1800
+        format:
+          type: string
+          enum: ["16:9", "9:16", "1:1"]
+        audioSource:
+          type: string
+          enum: [post_stitch, model]
+        audioVoice:
+          type: string
+          enum:
+            - fr-FR-DeniseNeural
+            - fr-FR-HenriNeural
+            - fr-FR-EloiseNeural
+            - fr-FR-BrigitteNeural
+          description: Edge TTS voice used when post-stitch audio is selected
+      required: [avatarImageDataUrl, scriptText, format, audioSource, audioVoice]
+    AvatarVideoCreated:
+      type: object
+      properties:
+        taskId:
+          type: string
+        accepted:
+          type: boolean
+      required: [taskId, accepted]
+    AvatarVideoStopped:
+      type: object
+      properties:
+        taskId:
+          type: string
+        stopped:
+          type: boolean
+      required: [taskId, stopped]
+    AvatarVideoTask:
+      type: object
+      properties:
+        taskId:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, completed, failed, stopped, unknown]
+        progress:
+          type: number
+          minimum: 0
+          maximum: 1
+        step:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+      required: [taskId, status, progress, step, error, videoUrl]
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
 

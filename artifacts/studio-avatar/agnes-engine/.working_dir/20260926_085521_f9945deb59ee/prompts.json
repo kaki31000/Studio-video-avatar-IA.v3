@@ -1,0 +1,4 @@
+{
+  "anchor_prompt": "Preserve the person's identity and appearance from the supplied portrait.\r\nCreate natural speech with realistic lip movement and expressive but restrained gestures.\r\nCreate one continuous cinematic shot that fits the script; follow any requested movement and setting direction.\r\nUse the additional reference photos as visual scene references while keeping the selected avatar photo as the primary identity.",
+  "model_audio_prompt": "Close-up shot, subject speaks in French with clear lip sync. Gentle, welcoming hand gesture while nodding slightly. Professional, dynamic expression. Continuous take, stable body position. Audio matches voiceover: \"La cuisine, ce n'est pas juste une recette...\""
+}

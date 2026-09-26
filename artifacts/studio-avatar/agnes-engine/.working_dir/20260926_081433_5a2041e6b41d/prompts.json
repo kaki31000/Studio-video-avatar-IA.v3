@@ -1,0 +1,4 @@
+{
+  "anchor_prompt": "Preserve the person's identity and appearance from the supplied portrait.\r\nCreate natural speech with realistic lip movement and expressive but restrained gestures.\r\nCreate one continuous cinematic shot that fits the script; follow any requested movement and setting direction.\r\nUse the additional reference photos as visual scene references while keeping the selected avatar photo as the primary identity.",
+  "model_audio_prompt": "Le présentateur sourit chaleureusement, ses lèvres bougent de manière synchrone avec le texte, tandis qu'il effectue de légers hochements de tête. Une main bouge doucement pour souligner les mots clés, le reste du corps reste stable et professionnel, créant une présence engageante et naturelle."
+}

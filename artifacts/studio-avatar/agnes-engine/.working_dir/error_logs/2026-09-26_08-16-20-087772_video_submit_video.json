@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-09-26T08:16:20.087772",
+  "task_id": "5a2041e6b41d",
+  "model_type": "video",
+  "api_method": "submit_video",
+  "prompt": "Le présentateur sourit chaleureusement, ses lèvres bougent de manière synchrone avec le texte, tandis qu'il effectue de légers hochements de tête. Une main bouge doucement pour souligner les mots clés, le reste du corps reste stable et professionnel, créant une présence engageante et naturelle.",
+  "system_prompt": "",
+  "error_type": "HTTPError",
+  "error_message": "HTTP 400: {\"code\":\"fail_to_fetch_task\",\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"litellm.BadRequestError: OpenAIException - {\\\\\\\"error\\\\\\\":{\\\\\\\"message\\\\\\\":\\\\\\\"mode=keyframes supports at most 3 images\\\\\\\",\\\\\\\"code\\\\\\\":\\\\\\\"400\\\\\\\",\\\\\\\"param\\\\\\\":\\\\\\\"image\\\\\\\"}}\\\",\\\"type\\\":null,\\\"param\\\":null,\\\"code\\\":\\\"400\\\"}} (request id: 20260926081619567268027Q89Q4Gq5)\",\"data\":null}",
+  "status_code": 400,
+  "response_body": "{\"code\":\"fail_to_fetch_task\",\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"litellm.BadRequestError: OpenAIException - {\\\\\\\"error\\\\\\\":{\\\\\\\"message\\\\\\\":\\\\\\\"mode=keyframes supports at most 3 images\\\\\\\",\\\\\\\"code\\\\\\\":\\\\\\\"400\\\\\\\",\\\\\\\"param\\\\\\\":\\\\\\\"image\\\\\\\"}}\\\",\\\"type\\\":null,\\\"param\\\":null,\\\"code\\\":\\\"400\\\"}} (request id: 20260926081619567268027Q89Q4Gq5)\",\"data\":null}",
+  "retry_count": 1,
+  "extra": {
+    "mode": "keyframes (6 frames)"
+  }
+}

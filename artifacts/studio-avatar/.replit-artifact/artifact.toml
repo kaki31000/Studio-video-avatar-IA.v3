@@ -1,0 +1,51 @@
+kind = "web"
+previewPath = "/"
+title = "Atelier Avatar IA"
+description = "Un studio francophone pour créer des vidéos multi-scènes à partir d’une photo d’avatar et d’un script, avec génération via le moteur Agnes."
+version = "1.0.0"
+id = "artifacts/studio-avatar"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23727
+
+[services.development]
+run = "pnpm --filter @workspace/studio-avatar run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/studio-avatar", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/studio-avatar/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23727"
+BASE_PATH = "/"
+
+[[services]]
+name = "agnes-engine"
+paths = ["/agnes"]
+localPort = 19628
+
+[services.development]
+run = "cd agnes-engine && ../../../.pythonlibs/bin/python -m uvicorn replit_proxy:app --host 0.0.0.0 --port $PORT"
+
+[services.production.build]
+args = ["uv", "sync", "--project", ".", "--no-dev"]
+
+[services.production.run]
+args = ["bash", "-lc", "cd agnes-engine && ../../../.venv/bin/python -m uvicorn replit_proxy:app --host 0.0.0.0 --port \"$PORT\""]
+
+[services.production.run.env]
+PORT = "19628"
+
+[services.production.health.startup]
+path = "/agnes/api/health"
+
+[services.env]
+PORT = "19628"

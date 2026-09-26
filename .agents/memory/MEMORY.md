@@ -1,0 +1,1 @@
+- [Agnes video constraints](agnes-video-constraints.md) — keyframes accepts three images total; validate MP4 output before completion.

@@ -1,0 +1,96 @@
+{
+  "format_version": "1.0",
+  "task_id": "08a67e74aa88",
+  "task_type": "anchor",
+  "task_status": "completed",
+  "current_mode": "auto",
+  "current_checkpoint": "",
+  "manual_config": {
+    "enabled": false,
+    "pause_points": [],
+    "approved_checkpoints": [],
+    "modified_artifacts": [],
+    "current_checkpoint": "",
+    "timeout_minutes": 0
+  },
+  "dir_name": "20260926_090944_08a67e74aa88",
+  "working_dir": "/home/runner/workspace/artifacts/studio-avatar/agnes-engine/.working_dir/20260926_090944_08a67e74aa88",
+  "artifacts": [
+    {
+      "artifact_id": "anchor:anchor_image",
+      "name_key": "artAnchorImage",
+      "category": "image",
+      "scope": "task",
+      "scope_index": null,
+      "path": "anchor.png",
+      "exists": true,
+      "size": 1230201,
+      "editable": true,
+      "schema_hint": "数字人形象 PNG。可替换后影响数字人视频。",
+      "generated_by_step": "generate_anchor",
+      "preview_url": "/api/tasks/08a67e74aa88/artifacts/anchor:anchor_image/file"
+    },
+    {
+      "artifact_id": "anchor:clip_prompts",
+      "name_key": "artClipPrompts",
+      "category": "json",
+      "scope": "task",
+      "scope_index": null,
+      "path": "prompts.json",
+      "exists": true,
+      "size": 885,
+      "editable": true,
+      "schema_hint": "数字人视频 prompt JSON（prompts.json）。",
+      "generated_by_step": "clip_prompts",
+      "preview_url": "/api/tasks/08a67e74aa88/artifacts/anchor:clip_prompts/file"
+    },
+    {
+      "artifact_id": "anchor:clip",
+      "name_key": "artClip",
+      "category": "video",
+      "scope": "task",
+      "scope_index": null,
+      "path": "clip/clip.mp4",
+      "exists": true,
+      "size": 1384330,
+      "editable": true,
+      "schema_hint": "数字人循环视频 MP4。",
+      "generated_by_step": "clip_gen",
+      "preview_url": "/api/tasks/08a67e74aa88/artifacts/anchor:clip/file"
+    }
+  ],
+  "files": [
+    {
+      "path": "anchor.png",
+      "size": 1230201
+    },
+    {
+      "path": "anchor_norm.jpg",
+      "size": 216510
+    },
+    {
+      "path": "anchor_norm.jpg.url",
+      "size": 136
+    },
+    {
+      "path": "clip/clip.mp4",
+      "size": 1384330
+    },
+    {
+      "path": "clip/curl.sh",
+      "size": 249
+    },
+    {
+      "path": "clip/task.json",
+      "size": 170
+    },
+    {
+      "path": "final_video.mp4",
+      "size": 1384330
+    },
+    {
+      "path": "prompts.json",
+      "size": 885
+    }
+  ]
+}

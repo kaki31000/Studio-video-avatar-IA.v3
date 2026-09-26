@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-09-25T08:02:57.813547",
+  "task_id": "840da86693da",
+  "model_type": "chat",
+  "api_method": "chat",
+  "prompt": "<anchor_appearance>\nPreserve the person's identity and appearance from the supplied portrait.\r\nCreate natural speech with realistic lip movement and expressive but restrained gestures.\r\nCreate one continuous cinematic shot that fits the script; follow any requested movement and setting direction.\n</anchor_appearance>\n\n<narration>\nJe veux cette mascotte ce présente comme Eshri la mascotte de école supérieure d'hôtelrie eshra oran et qui explique ce que il yas dans la photo de avatar\n</narration>\n\n请为此带内置音频的主播片段生成视频提示词。\n",
+  "system_prompt": "",
+  "error_type": "HTTPError",
+  "error_message": "401 Client Error: Unauthorized for url: https://apihub.agnes-ai.com/v1/chat/completions",
+  "status_code": 401,
+  "response_body": "{\"error\":{\"code\":\"\",\"message\":\"Invalid token (request id: 20260925080257702001059X49vrBad)\",\"type\":\"AgnesAI_error\"}}",
+  "retry_count": 3
+}
