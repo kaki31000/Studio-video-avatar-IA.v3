@@ -1,1 +1,2 @@
 - [Agnes video constraints](agnes-video-constraints.md) — keyframes accepts three images total; validate MP4 output before completion.
+- [Agnes production Python](agnes-production-python.md) — published runtime includes `.pythonlibs`, while the `uv`-created `.venv` is not available at startup.
