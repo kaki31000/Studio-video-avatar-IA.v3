@@ -146,9 +146,9 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
   }
 
   const dimensions = input.format === "16:9"
-    ? { width: 1344, height: 768 }
+    ? { width: 1280, height: 720 }
     : input.format === "9:16"
-      ? { width: 768, height: 1344 }
+      ? { width: 720, height: 1280 }
       : { width: 1024, height: 1024 };
   const direction = input.sceneDirection?.trim();
   const anchorPrompt = [

@@ -293,7 +293,11 @@ class AgnesVideoAPI:
                 f"[AgnesVideo] Duration preset {d}s has {nf} frames, "
                 f"exceeds {max_nf} for {width}x{height}. Capping."
             )
-            return max_nf, fr
+            # Keep the requested duration when resolution limits force fewer
+            # frames. For example, 169 frames at 11 fps is still about 15s,
+            # whereas keeping 24 fps would silently produce only ~7s.
+            capped_rate = max(1, min(60, round(max_nf / d)))
+            return max_nf, capped_rate
         best = None
         for nf in range(9, min(410, max_nf + 1), 8):
             fr = round(nf / d)

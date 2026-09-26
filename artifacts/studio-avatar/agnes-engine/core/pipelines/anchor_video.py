@@ -34,6 +34,11 @@ logger = logging.getLogger(__name__)
 # 单片段重试间隔基数（秒）：delay = 基数 * (attempt + 1)
 _CLIP_RETRY_INTERVAL_BASE_SECONDS = 15
 
+# Agnes v2.0 needs one reference image and 361 frames at 24 fps for a
+# reliable 15-second image-to-video clip. The final post-stitch step can loop
+# this clip to match the spoken audio duration.
+_ANCHOR_CLIP_DURATION_SECONDS = 15
+
 # 主播形象生成阶段起始进度
 _PROGRESS_ANCHOR_IMAGE = 0.02
 
@@ -114,16 +119,32 @@ class AnchorPipeline(MultiScenePipeline):
     # ------------------------------------------------------------------
 
     async def _build_reference_images(self) -> None:
-        """Step: 生成主播形象图（t2i / i2i）。"""
+        """Step: 保留用户上传的主播原图，或在没有原图时生成形象图。"""
         prompt = self._state.anchor_prompt or self._get_default_anchor_prompt()
         output_path = os.path.join(self.working_dir, "anchor.png")
+        ref_image = self._state.anchor_reference_image
 
-        if os.path.exists(output_path):
+        # The uploaded portrait is the source of truth for identity. Do not
+        # run an i2i pass here: it can alter the mascot/person before the
+        # video API receives it. The API route keeps this file available for
+        # the lifetime of the task.
+        if ref_image and os.path.isfile(ref_image):
+            self._state.anchor_image_path = ref_image
+            self.task_manager.update_state(anchor_image_path=ref_image)
+            await self._emit(
+                "generate_anchor",
+                "completed",
+                "已保留原始主播图片作为视频参考",
+                _PROGRESS_ANCHOR_IMAGE_DONE,
+            )
+            logger.info("[Anchor] using uploaded portrait as the primary reference")
+            return
+
+        if os.path.isfile(output_path):
             self._state.anchor_image_path = output_path
             logger.info("[Anchor] anchor image already exists, skipping")
             return
 
-        ref_image = self._state.anchor_reference_image
         size = f"{self._state.video_width}x{self._state.video_height}"
 
         await self._emit(
@@ -208,7 +229,7 @@ class AnchorPipeline(MultiScenePipeline):
     # ------------------------------------------------------------------
 
     async def _generate_videos(self) -> None:
-        """生成单段 i2v 视频（5 秒，循环用）。"""
+        """生成单段 15 秒 i2v 视频，最终按音频长度循环使用。"""
         scene = self._state.scenes[0]
         anchor_image_path = self._state.anchor_image_path
         prompt = scene.scene_prompt
@@ -241,24 +262,16 @@ class AnchorPipeline(MultiScenePipeline):
         if saved_video_id:
             video_id = saved_video_id
         else:
-            all_reference_images = [
-                anchor_image_path,
-                *(self._state.scene_reference_images or []),
-            ]
-            # Agnes v2 keyframes accepts at most three images. The avatar
-            # remains the primary image; keep only the first two extra
-            # references instead of submitting a request that Agnes rejects.
-            reference_images = all_reference_images[:3]
-            if len(all_reference_images) > len(reference_images):
-                logger.warning(
-                    "[Anchor] Agnes keyframes supports 3 images; "
-                    "ignoring %d extra scene references",
-                    len(all_reference_images) - len(reference_images),
-                )
+            # Always send exactly one image here. Agnes selects ti2vid and
+            # places the reference in the JSON `image` field only for a
+            # single reference; adding scene images would switch to
+            # keyframes and could change the uploaded avatar.
+            if not anchor_image_path or not os.path.isfile(anchor_image_path):
+                raise RuntimeError("主播原始图片不可用，无法提交 Image-to-Video 请求")
             video_id = await self.video_generator.submit_video(
                 prompt=prompt,
-                reference_image_paths=reference_images,
-                duration=5,
+                reference_image_paths=[anchor_image_path],
+                duration=_ANCHOR_CLIP_DURATION_SECONDS,
                 width=vw,
                 height=vh,
             )
