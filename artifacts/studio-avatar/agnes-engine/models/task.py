@@ -356,9 +356,8 @@ class AnchorVideoTask(BaseTaskState):
     视频片段，配合 TTS 读稿音频和字幕，拼接合成最终视频。
     （v3.1 方案 B：分段生成 + 口型近似匹配）
 
-    audio_source 支持两种模式：
-      - "post_stitch": 生成一段短 i2v 视频循环 + TTS 后拼接音频（音频可控，嘴型较难匹配）
-      - "model": 交由视频模型自身生成音频（音频由模型控制，效果不可控）
+    Agnes 只生成无声视觉片段；ElevenLabs 根据 mascotte 的描述创建并生成旁白，
+    再在最终合成阶段附加到视频。
     """
 
     task_type: Literal[TaskType.ANCHOR] = TaskType.ANCHOR
@@ -370,7 +369,8 @@ class AnchorVideoTask(BaseTaskState):
     script_text: str = ""
 
     # 配置
-    audio_source: str = "post_stitch"  # "post_stitch" | "model"
+    audio_source: str = "post_stitch"
+    mascot_voice_direction: str = ""
     video_duration: int = 15
     scene_count: int = 1
 

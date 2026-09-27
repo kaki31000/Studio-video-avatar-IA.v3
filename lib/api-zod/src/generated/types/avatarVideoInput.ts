@@ -39,9 +39,15 @@ export interface AvatarVideoInput {
   /** @maxLength 1800 */
   sceneDirection?: string;
   format: AvatarVideoInputFormat;
+  /** Audio is always generated after the silent Agnes video with the dedicated TTS provider */
   audioSource: AvatarVideoInputAudioSource;
-  /** Edge TTS voice used when post-stitch audio is selected */
+  /** Automatically designed French ElevenLabs voice matched to the mascot */
   audioVoice: AvatarVideoInputAudioVoice;
+  /**
+     * Optional personality and delivery direction for the mascot voice
+     * @maxLength 800
+     */
+  mascotVoiceDirection?: string;
   /** Requested final video duration in seconds */
   videoDuration?: AvatarVideoInputVideoDuration;
   /** Number of distinct video plans to generate */

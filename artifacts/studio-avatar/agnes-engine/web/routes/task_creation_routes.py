@@ -240,9 +240,10 @@ async def create_creative_task(
     generate_end_frames_from_ref: bool = Form(True),
     # v2.0 音频配置
     audio_enabled: bool = Form(False),
-    audio_voice: str = Form("zh-CN-XiaoxiaoNeural"),
+    audio_voice: str = Form("mascot-auto"),
     audio_rate: str = Form("+0%"),
     audio_lang: str = Form(""),  # 页面语言，用于音色兼容性校验
+    mascot_voice_direction: str = Form(""),
     audio_add_tashkeel: bool = Form(False),  # 阿拉伯语旁白自动加变音符号（harakat）
     # v3.0 字幕独立配置
     subtitle_enabled: bool = Form(True),
@@ -625,7 +626,7 @@ async def create_anchor_task(
     # v4.0: 音色与稿件文本兼容性校验
     # 数字人口播的稿件由用户直接输入，应以「稿件文本的实际文字体系」为准做脚本级
     # 校验，而非页面语言。否则中文环境下输入英文稿 + 选英文音色会被误判为不支持。
-    if audio_enabled:
+    if audio_enabled and audio_voice != "mascot-auto":
         helpers._validate_voice_compat(audio_voice, audio_lang or "zh", text=script_text)
 
     if not script_text.strip():
@@ -670,6 +671,7 @@ async def create_anchor_task(
         scene_reference_images=scene_reference_paths,
         script_text=script_text.strip(),
         audio_source=audio_source,
+        mascot_voice_direction=mascot_voice_direction.strip()[:800],
         video_duration=video_duration,
         scene_count=scene_count,
         video_width=video_width,

@@ -75,16 +75,19 @@ async function removeTemporaryFile(imagePath: string): Promise<void> {
 
 router.get("/studio/status", async (req, res): Promise<void> => {
   const keyConfigured = Boolean(process.env.AGNES_API_KEY?.trim());
+  const elevenLabsConfigured = Boolean(process.env.ELEVENLABS_API_KEY?.trim());
   try {
     const engineResponse = await fetch(`${engineBaseUrl}/api/health`, {
       signal: AbortSignal.timeout(5_000),
     });
     const healthy = engineResponse.ok;
     const result = GetStudioStatusResponse.parse({
-      configured: healthy && keyConfigured,
+      configured: healthy && keyConfigured && elevenLabsConfigured,
       engine: "agnes",
       message: !keyConfigured
         ? "La clé du moteur Agnes n’est pas configurée côté serveur."
+        : !elevenLabsConfigured
+          ? "La clé ElevenLabs n’est pas configurée côté serveur."
         : healthy
           ? "Le moteur Agnes est prêt."
           : "Le service Agnes est momentanément inaccessible.",
@@ -94,9 +97,11 @@ router.get("/studio/status", async (req, res): Promise<void> => {
     const result = GetStudioStatusResponse.parse({
       configured: false,
       engine: "agnes",
-      message: keyConfigured
+      message: keyConfigured && elevenLabsConfigured
         ? "Le service Agnes est momentanément inaccessible."
-        : "La clé du moteur Agnes n’est pas configurée côté serveur.",
+        : !keyConfigured
+          ? "La clé du moteur Agnes n’est pas configurée côté serveur."
+          : "La clé ElevenLabs n’est pas configurée côté serveur.",
     });
     res.json(result);
   }
@@ -153,7 +158,7 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
       : { width: 1024, height: 1024 };
   const direction = input.sceneDirection?.trim();
   const anchorPrompt = [
-    "Preserve the person's identity and appearance from the supplied portrait.",
+    "Preserve the avatar or mascot identity and appearance from the supplied portrait.",
     "Create a silent visual performance with natural facial expression and restrained gestures.",
     "Do not generate spoken dialogue, voice, lyrics, or any audio from the video model.",
     "Create one continuous cinematic shot that fits the visual direction; the French voice-over is added after video generation.",
@@ -175,9 +180,10 @@ router.post("/studio/generate", async (req, res): Promise<void> => {
   form.set("video_width", String(dimensions.width));
   form.set("video_height", String(dimensions.height));
   form.set("audio_enabled", "true");
-  form.set("audio_voice", input.audioVoice);
+  form.set("audio_voice", "mascot-auto");
   form.set("audio_rate", "+0%");
   form.set("audio_lang", "fr");
+  form.set("mascot_voice_direction", input.mascotVoiceDirection?.trim() || "");
   form.set("subtitle_enabled", "true");
   form.set("subtitle_font", "DejaVuSans.ttf");
 

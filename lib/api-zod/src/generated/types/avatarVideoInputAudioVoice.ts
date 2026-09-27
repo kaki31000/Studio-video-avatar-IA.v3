@@ -7,14 +7,11 @@
  */
 
 /**
- * Edge TTS voice used when post-stitch audio is selected
+ * Automatically designed French ElevenLabs voice matched to the mascot
  */
 export type AvatarVideoInputAudioVoice = typeof AvatarVideoInputAudioVoice[keyof typeof AvatarVideoInputAudioVoice];
 
 
 export const AvatarVideoInputAudioVoice = {
-  'fr-FR-DeniseNeural': 'fr-FR-DeniseNeural',
-  'fr-FR-HenriNeural': 'fr-FR-HenriNeural',
-  'fr-FR-EloiseNeural': 'fr-FR-EloiseNeural',
-  'fr-FR-BrigitteNeural': 'fr-FR-BrigitteNeural',
+  'mascot-auto': 'mascot-auto',
 } as const;

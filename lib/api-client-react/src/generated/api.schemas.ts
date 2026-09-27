@@ -31,25 +31,24 @@ export const AvatarVideoInputFormat = {
   '1:1': '1:1',
 } as const;
 
+/**
+ * Audio is always generated after the silent Agnes video with the dedicated TTS provider
+ */
 export type AvatarVideoInputAudioSource = typeof AvatarVideoInputAudioSource[keyof typeof AvatarVideoInputAudioSource];
 
 
 export const AvatarVideoInputAudioSource = {
   post_stitch: 'post_stitch',
-  model: 'model',
 } as const;
 
 /**
- * Edge TTS voice used when post-stitch audio is selected
+ * Automatically designed French ElevenLabs voice matched to the mascot
  */
 export type AvatarVideoInputAudioVoice = typeof AvatarVideoInputAudioVoice[keyof typeof AvatarVideoInputAudioVoice];
 
 
 export const AvatarVideoInputAudioVoice = {
-  'fr-FR-DeniseNeural': 'fr-FR-DeniseNeural',
-  'fr-FR-HenriNeural': 'fr-FR-HenriNeural',
-  'fr-FR-EloiseNeural': 'fr-FR-EloiseNeural',
-  'fr-FR-BrigitteNeural': 'fr-FR-BrigitteNeural',
+  'mascot-auto': 'mascot-auto',
 } as const;
 
 /**
@@ -105,9 +104,15 @@ export interface AvatarVideoInput {
   /** @maxLength 1800 */
   sceneDirection?: string;
   format: AvatarVideoInputFormat;
+  /** Audio is always generated after the silent Agnes video with the dedicated TTS provider */
   audioSource: AvatarVideoInputAudioSource;
-  /** Edge TTS voice used when post-stitch audio is selected */
+  /** Automatically designed French ElevenLabs voice matched to the mascot */
   audioVoice: AvatarVideoInputAudioVoice;
+  /**
+     * Optional personality and delivery direction for the mascot voice
+     * @maxLength 800
+     */
+  mascotVoiceDirection?: string;
   /** Requested final video duration in seconds */
   videoDuration?: AvatarVideoInputVideoDuration;
   /** Number of distinct video plans to generate */

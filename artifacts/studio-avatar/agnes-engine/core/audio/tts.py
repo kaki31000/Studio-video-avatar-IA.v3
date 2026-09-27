@@ -52,6 +52,130 @@ class ElevenLabsTTSEngine(TTSEngine):
 
     endpoint = "https://api.elevenlabs.io/v1/text-to-speech"
     model_id = "eleven_multilingual_v2"
+    voice_design_endpoint = "https://api.elevenlabs.io/v1/text-to-voice/design"
+    voice_create_endpoint = "https://api.elevenlabs.io/v1/text-to-voice"
+
+    @staticmethod
+    def build_mascot_voice_description(
+        anchor_prompt: str,
+        script_text: str,
+        voice_direction: str = "",
+    ) -> str:
+        """Create a safe, descriptive Voice Design prompt for a fictional mascot."""
+        direction = voice_direction.strip() or (
+            "warm, expressive and memorable; friendly enough for a mascot, "
+            "clear for narration, with a gentle playful energy"
+        )
+        visual_brief = re.sub(r"\s+", " ", anchor_prompt).strip()
+        if len(visual_brief) > 700:
+            visual_brief = visual_brief[:700]
+        script_hint = re.sub(r"\s+", " ", script_text).strip()[:240]
+        return (
+            "A French-speaking fictional mascot voice for an AI-generated avatar. "
+            f"Voice direction: {direction}. "
+            f"Visual character brief: {visual_brief or 'an expressive friendly mascot'}. "
+            f"Use this narration context to match the character energy: {script_hint}. "
+            "Do not imitate a real person or a recognizable public figure. "
+            "The result should sound natural, warm, intelligible and suitable for "
+            "a polished French voice-over."
+        )
+
+    async def design_mascot_voice(
+        self,
+        voice_description: str,
+        sample_text: str,
+        voice_name: str = "Atelier Mascotte",
+    ) -> str:
+        """Design and save a dedicated ElevenLabs voice for one mascot."""
+        return await asyncio.to_thread(
+            self._design_mascot_voice_sync,
+            voice_description,
+            sample_text,
+            voice_name,
+        )
+
+    def _design_mascot_voice_sync(
+        self,
+        voice_description: str,
+        sample_text: str,
+        voice_name: str,
+    ) -> str:
+        api_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("La clé ElevenLabs n’est pas configurée côté serveur.")
+        sample_text = sample_text.strip()
+        if len(sample_text) < 100:
+            sample_text = (
+                sample_text
+                + " Cette mascotte raconte son histoire avec une énergie chaleureuse, "
+                "naturelle et facile à écouter."
+            )[:1000]
+        else:
+            sample_text = sample_text[:1000]
+
+        headers = {
+            "xi-api-key": api_key,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        try:
+            response = requests.post(
+                self.voice_design_endpoint,
+                headers=headers,
+                params={"output_format": "mp3_22050_32"},
+                json={
+                    "voice_description": voice_description,
+                    "model_id": "eleven_multilingual_ttv_v2",
+                    "text": sample_text,
+                    "should_enhance": True,
+                    "guidance_scale": 4.0,
+                },
+                timeout=(15, 180),
+            )
+        except requests.RequestException as exc:
+            raise RuntimeError("Impossible de joindre ElevenLabs pour créer la voix de la mascotte.") from exc
+        if not response.ok:
+            detail = response.text[:300].replace("\n", " ").strip()
+            raise RuntimeError(
+                f"ElevenLabs a refusé la création de la voix ({response.status_code})."
+                + (f" {detail}" if detail else "")
+            )
+        try:
+            previews = response.json().get("previews") or []
+            generated_voice_id = previews[0].get("generated_voice_id")
+        except (ValueError, AttributeError, IndexError, TypeError) as exc:
+            raise RuntimeError("ElevenLabs n’a pas renvoyé de voix de mascotte exploitable.") from exc
+        if not generated_voice_id:
+            raise RuntimeError("ElevenLabs n’a généré aucune voix de mascotte.")
+
+        try:
+            create_response = requests.post(
+                self.voice_create_endpoint,
+                headers=headers,
+                json={
+                    "voice_name": voice_name[:64] or "Atelier Mascotte",
+                    "voice_description": voice_description,
+                    "generated_voice_id": generated_voice_id,
+                    "labels": {"source": "atelier-avatar", "language": "fr"},
+                },
+                timeout=(15, 120),
+            )
+        except requests.RequestException as exc:
+            raise RuntimeError("Impossible d’enregistrer la voix créée par ElevenLabs.") from exc
+        if not create_response.ok:
+            detail = create_response.text[:300].replace("\n", " ").strip()
+            raise RuntimeError(
+                f"ElevenLabs a refusé l’enregistrement de la voix ({create_response.status_code})."
+                + (f" {detail}" if detail else "")
+            )
+        try:
+            voice_id = create_response.json().get("voice_id")
+        except (ValueError, AttributeError) as exc:
+            raise RuntimeError("ElevenLabs a renvoyé un identifiant de voix invalide.") from exc
+        if not voice_id:
+            raise RuntimeError("ElevenLabs n’a pas renvoyé l’identifiant de la voix créée.")
+        logger.info("[TTS] Mascot voice designed and saved in ElevenLabs")
+        return voice_id
 
     async def generate(
         self, text: str, output_path: str, voice: str = "fr-FR-DeniseNeural", rate: str = "+0%"
@@ -73,7 +197,9 @@ class ElevenLabsTTSEngine(TTSEngine):
 
         voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
         if not voice_id:
-            voice_id = _ELEVENLABS_VOICE_IDS.get(voice, _ELEVENLABS_VOICE_IDS["fr-FR-DeniseNeural"])
+            voice_id = _ELEVENLABS_VOICE_IDS.get(voice, voice)
+        if not voice_id or voice_id == "mascot-auto":
+            raise RuntimeError("L’identifiant de voix ElevenLabs est introuvable.")
 
         # ElevenLabs accepts an explicit rate only through voice settings in
         # newer API versions. The current UI uses +0%, so omit it unless a

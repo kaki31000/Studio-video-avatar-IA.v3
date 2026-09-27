@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Audio is always generated after the silent Agnes video with the dedicated TTS provider
+ */
 export type AvatarVideoInputAudioSource = typeof AvatarVideoInputAudioSource[keyof typeof AvatarVideoInputAudioSource];
 
 
 export const AvatarVideoInputAudioSource = {
   post_stitch: 'post_stitch',
-  model: 'model',
 } as const;

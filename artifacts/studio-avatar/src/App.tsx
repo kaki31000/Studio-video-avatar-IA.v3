@@ -38,16 +38,8 @@ import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 const queryClient = new QueryClient();
 
 type Format = AvatarVideoInput['format'];
-type AudioVoice = AvatarVideoInput['audioVoice'];
 type VideoDuration = NonNullable<AvatarVideoInput['videoDuration']>;
 type SceneCount = NonNullable<AvatarVideoInput['sceneCount']>;
-
-const voiceOptions: { value: AudioVoice; label: string; hint: string }[] = [
-  { value: 'fr-FR-DeniseNeural', label: 'Denise', hint: 'Français · voix féminine' },
-  { value: 'fr-FR-HenriNeural', label: 'Henri', hint: 'Français · voix masculine' },
-  { value: 'fr-FR-EloiseNeural', label: 'Éloïse', hint: 'Français · voix féminine' },
-  { value: 'fr-FR-BrigitteNeural', label: 'Brigitte', hint: 'Français · voix féminine' },
-];
 
 const formatOptions: { value: Format; label: string; hint: string }[] = [
   { value: '16:9', label: 'Paysage', hint: 'YouTube, site' },
@@ -412,7 +404,7 @@ function Home() {
   const [scriptText, setScriptText] = useState('');
   const [sceneDirection, setSceneDirection] = useState('');
   const [format, setFormat] = useState<Format>('16:9');
-  const [audioVoice, setAudioVoice] = useState<AudioVoice>('fr-FR-DeniseNeural');
+  const [mascotVoiceDirection, setMascotVoiceDirection] = useState('');
   const [agnesApiKey, setAgnesApiKey] = useState('');
   const [videoDuration, setVideoDuration] = useState<VideoDuration>(15);
   const [sceneCount, setSceneCount] = useState<SceneCount>(1);
@@ -457,7 +449,8 @@ function Home() {
       sceneDirection: sceneDirection.trim() || undefined,
       format,
       audioSource: 'post_stitch',
-      audioVoice,
+      audioVoice: 'mascot-auto',
+      mascotVoiceDirection: mascotVoiceDirection.trim() || undefined,
       videoDuration,
       sceneCount,
     };
@@ -558,10 +551,9 @@ function Home() {
                      <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Cette clé est transmise uniquement à ce rendu. Elle n’est pas enregistrée dans le navigateur, la tâche ou les journaux.</p>
                     <label className="mt-7 block text-sm font-bold">Audio</label>
                      <div className="mt-3 rounded-xl border border-[hsl(var(--foreground))] bg-[hsl(var(--muted)/.62)] p-3.5" data-testid="audio-post-stitch-only"><p className="text-sm font-semibold">Voix off française ajoutée après l’animation</p><p className="mt-1 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">Agnes génère uniquement le visuel. ElevenLabs lit ensuite votre script et le studio fusionne le MP3 avec la vidéo.</p></div>
-                    <label htmlFor="voice" className="mt-6 block text-sm font-bold">Voix</label>
-                    <select id="voice" value={audioVoice} onChange={(event) => setAudioVoice(event.target.value as AudioVoice)} className="mt-3 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted)/.35)] px-3 py-3 text-sm focus:border-[hsl(var(--foreground))] focus:outline-none" data-testid="select-audio-voice">
-                      {voiceOptions.map((voice) => <option key={voice.value} value={voice.value}>{voice.label} — {voice.hint}</option>)}
-                    </select>
+                     <label htmlFor="voice-direction" className="mt-6 block text-sm font-bold">Personnalité de la voix <span className="font-normal text-[hsl(var(--muted-foreground))]">(facultatif)</span></label>
+                     <textarea id="voice-direction" value={mascotVoiceDirection} onChange={(event) => setMascotVoiceDirection(event.target.value)} placeholder="Ex. voix chaleureuse, vive et un peu espiègle, adaptée à une mascotte..." rows={3} maxLength={800} className="mt-3 w-full resize-y rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted)/.35)] px-4 py-3 text-sm leading-relaxed placeholder:text-[hsl(var(--muted-foreground)/.7)] focus:border-[hsl(var(--foreground))] focus:outline-none" data-testid="textarea-voice-direction" />
+                     <p className="mt-2 text-[11px] leading-relaxed text-[hsl(var(--muted-foreground))]">ElevenLabs crée automatiquement une voix française originale à partir du portrait, du script et de cette indication.</p>
                     <div className="mt-7 border-t border-[hsl(var(--border))] pt-5"><div className="flex items-start gap-3"><Info className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))]" /><p className="text-[11px] leading-[1.65] text-[hsl(var(--muted-foreground))]">Le résultat final et la qualité des mouvements dépendent du modèle Agnes. Un portrait net, bien éclairé, donne de meilleurs résultats.</p></div></div>
                     {formError ? <div className="mt-5 flex items-start gap-2 rounded-xl bg-[hsl(var(--destructive)/.08)] p-3 text-xs font-medium leading-relaxed text-[hsl(var(--destructive))]" data-testid="error-create-video"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />{formError}</div> : null}
                     <button type="submit" disabled={generateVideo.isPending || statusQuery.isLoading || unavailable === true} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[hsl(var(--foreground))] px-5 py-4 text-sm font-bold text-[hsl(var(--background))] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-generate-video">{generateVideo.isPending ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Préparation du rendu...</> : <><Play className="h-4 w-4 fill-current" /> Lancer le rendu</>}</button>

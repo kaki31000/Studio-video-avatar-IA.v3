@@ -273,12 +273,13 @@ components:
           description: Audio is always generated after the silent Agnes video with the dedicated TTS provider
         audioVoice:
           type: string
-          enum:
-            - fr-FR-DeniseNeural
-            - fr-FR-HenriNeural
-            - fr-FR-EloiseNeural
-            - fr-FR-BrigitteNeural
-           description: French voice mapped to the ElevenLabs TTS provider
+          enum: [mascot-auto]
+          default: mascot-auto
+          description: Automatically designed French ElevenLabs voice matched to the mascot
+        mascotVoiceDirection:
+          type: string
+          maxLength: 800
+          description: Optional personality and delivery direction for the mascot voice
         videoDuration:
           type: integer
           enum: [15, 30, 45, 60]

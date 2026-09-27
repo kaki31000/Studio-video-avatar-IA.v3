@@ -9,6 +9,8 @@ v4.0 重构：继承 MultiScenePipeline，复用模板方法 run() 与步骤编�
 """
 
 import asyncio
+import hashlib
+import json
 import logging
 import os
 import re
@@ -18,6 +20,7 @@ from typing import Callable, Optional
 
 from core.api.agnes_image import AgnesImageAPI
 from core.api.agnes_video import AgnesVideoAPI, VideoTaskCancelled
+from core.audio.tts import ElevenLabsTTSEngine
 from core.compositor.concatenator import VideoConcatenator
 from core.compositor.ffmpeg_tool import resolve_binary
 from core.config import DEFAULT_TEXT_MODEL
@@ -341,24 +344,56 @@ class AnchorPipeline(MultiScenePipeline):
             raise RuntimeError("Le texte de la voix off est vide.")
 
         audio_path = os.path.join(self.working_dir, "full_narration.mp3")
+        audio_metadata_path = audio_path + ".provider.json"
+        audio_config = self._state.audio_config
+        requested_voice = "mascot-auto"
+        voice_direction = getattr(self._state, "mascot_voice_direction", "") or ""
+        voice_description = ElevenLabsTTSEngine.build_mascot_voice_description(
+            anchor_prompt=self._state.anchor_prompt or self._get_default_anchor_prompt(),
+            script_text=full_text,
+            voice_direction=voice_direction,
+        )
+        voice_fingerprint = hashlib.sha256(voice_description.encode("utf-8")).hexdigest()
+        audio_fingerprint = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
         # v5.x 产物规范前置：导出读稿纯文本（供外部 Agent/工具处理）
         self._save_narration_txt(full_text, audio_path)
 
         if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-            self._state.combined_audio = audio_path
-            logger.info("[Anchor] audio: file already exists, skipping")
-            return self._load_cues_cache(audio_path)
+            try:
+                with open(audio_metadata_path, "r", encoding="utf-8") as metadata_file:
+                    metadata = json.load(metadata_file)
+            except (OSError, ValueError):
+                metadata = {}
+            if (
+                metadata.get("provider") == "elevenlabs"
+                and metadata.get("model") == "eleven_multilingual_v2"
+                and metadata.get("voice") == requested_voice
+                and metadata.get("text_sha256") == audio_fingerprint
+                and metadata.get("voice_description_sha256") == voice_fingerprint
+            ):
+                self._state.combined_audio = audio_path
+                logger.info("[Anchor] ElevenLabs audio already exists, skipping")
+                return self._load_cues_cache(audio_path)
+            logger.info("[Anchor] invalid or legacy audio cache will be regenerated with ElevenLabs")
+            for stale_path in (audio_path, audio_path + ".cues.json", audio_metadata_path):
+                try:
+                    os.remove(stale_path)
+                except OSError:
+                    pass
 
-        audio_config = self._state.audio_config
         await self._emit("audio", "running", f"生成整段读稿 ({len(full_text)} 字)...", _PROGRESS_AUDIO_START)
 
-        from core.audio.tts import ElevenLabsTTSEngine
-
         try:
+            elevenlabs = ElevenLabsTTSEngine()
+            mascot_voice_id = await elevenlabs.design_mascot_voice(
+                voice_description=voice_description,
+                sample_text=full_text,
+                voice_name="Atelier Mascotte",
+            )
             _, sub_maker = await ElevenLabsTTSEngine().generate(
                 text=full_text,
                 output_path=audio_path,
-                voice=getattr(audio_config, "voice", "fr-FR-DeniseNeural"),
+                voice=mascot_voice_id,
                 rate=getattr(audio_config, "rate", "+0%"),
             )
         except RuntimeError as exc:
@@ -368,6 +403,23 @@ class AnchorPipeline(MultiScenePipeline):
         self._state.combined_audio = audio_path
         self.task_manager.update_state(combined_audio=audio_path)
         self._save_cues_cache(audio_path, sub_maker)
+        try:
+            with open(audio_metadata_path, "w", encoding="utf-8") as metadata_file:
+                json.dump(
+                    {
+                        "provider": "elevenlabs",
+                        "model": "eleven_multilingual_v2",
+                        "voice": requested_voice,
+                        "voice_id": mascot_voice_id,
+                        "text_sha256": audio_fingerprint,
+                        "voice_description_sha256": voice_fingerprint,
+                    },
+                    metadata_file,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+        except OSError as exc:
+            logger.warning("[Anchor] failed to save audio provider metadata: %s", exc)
         await self._emit("audio", "completed", "读稿音频生成完成", _PROGRESS_AUDIO_DONE)
         return sub_maker
 

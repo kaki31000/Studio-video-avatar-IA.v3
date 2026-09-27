@@ -42,6 +42,10 @@ export const generateAvatarVideoBodyScriptTextMax = 16000;
 
 export const generateAvatarVideoBodySceneDirectionMax = 1800;
 
+export const generateAvatarVideoBodyAudioSourceDefault = `post_stitch`;
+export const generateAvatarVideoBodyAudioVoiceDefault = `mascot-auto`;
+export const generateAvatarVideoBodyMascotVoiceDirectionMax = 800;
+
 export const generateAvatarVideoBodyVideoDurationDefault = 15;
 export const generateAvatarVideoBodySceneCountDefault = 1;
 
@@ -52,8 +56,9 @@ export const GenerateAvatarVideoBody = zod.object({
   "scriptText": zod.string().min(1).max(generateAvatarVideoBodyScriptTextMax),
   "sceneDirection": zod.string().max(generateAvatarVideoBodySceneDirectionMax).optional(),
   "format": zod.enum(['16:9', '9:16', '1:1']),
-  "audioSource": zod.enum(['post_stitch', 'model']),
-  "audioVoice": zod.enum(['fr-FR-DeniseNeural', 'fr-FR-HenriNeural', 'fr-FR-EloiseNeural', 'fr-FR-BrigitteNeural']).describe('Edge TTS voice used when post-stitch audio is selected'),
+  "audioSource": zod.enum(['post_stitch']).default(generateAvatarVideoBodyAudioSourceDefault).describe('Audio is always generated after the silent Agnes video with the dedicated TTS provider'),
+  "audioVoice": zod.enum(['mascot-auto']).default(generateAvatarVideoBodyAudioVoiceDefault).describe('Automatically designed French ElevenLabs voice matched to the mascot'),
+  "mascotVoiceDirection": zod.string().max(generateAvatarVideoBodyMascotVoiceDirectionMax).optional().describe('Optional personality and delivery direction for the mascot voice'),
   "videoDuration": zod.union([zod.literal(15),zod.literal(30),zod.literal(45),zod.literal(60)]).default(generateAvatarVideoBodyVideoDurationDefault).describe('Requested final video duration in seconds'),
   "sceneCount": zod.union([zod.literal(1),zod.literal(2),zod.literal(3)]).default(generateAvatarVideoBodySceneCountDefault).describe('Number of distinct video plans to generate')
 })
